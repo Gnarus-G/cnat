@@ -1,0 +1,23 @@
+---
+source: src/main.rs
+description: "[\"sr-only\", \"!visible\", \"visible\", \"mx-1\", \"w-[10px]\", \"absolute\", \"MuiButton-startIcon\", \"pb-6\", \"text-sm\", \"w-10/11\", \"w-10\"]\n"
+info: fixtures/sample.tsx
+---
+import React from "react";
+export default function Foo() {
+    return (<div className="tw-sr-only tw-visible untouched sm:[&_button]:tw-text-sm" intent="karma">
+
+      <Button className="[&>.MuiButton-startIcon]:tw-absolute">
+
+        <span className="tw-MuiButton-startIcon tw-w-10/11">×</span>
+
+        Button
+
+      </Button>
+
+
+
+      <span className="[&>*]:tw-w-[10px] [&]:last-of-type:tw-pb-6 untouched"> </span>
+
+    </div>);
+}

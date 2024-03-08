@@ -1,4 +1,4 @@
-use std::{ffi::OsStr, path::PathBuf};
+use std::path::PathBuf;
 
 use anyhow::anyhow;
 use clap::Parser;
@@ -38,27 +38,7 @@ fn main() -> anyhow::Result<()> {
 
     let mut ppc = ApplyTailwindPrefix::new(&cli.prefix, c.class_names);
 
-    for r in cli.context.read_dir()? {
-        match r {
-            Ok(entry) => {
-                let filepath = entry.path();
-                if let Some(ext) = filepath.extension() {
-                    if !["ts", "js", "jsx", "tsx"].map(OsStr::new).contains(&ext) {
-                        continue;
-                    }
-                }
-
-                let output = ppc.prefix_classes(&filepath)?;
-
-                std::fs::write(&filepath, &output)?;
-                eprintln!(
-                    "[INFO] transformed {}",
-                    filepath.display().to_string().green()
-                );
-            }
-            Err(err) => eprintln!("[Error] {err:#}"),
-        };
-    }
+    ppc.prefix_all_classes_in_dir(&cli.context)?;
 
     eprintln!("{}", "[DONE] Remember to run your formatter on the transformed files to make sure the format is as expected.".green());
 
@@ -137,6 +117,8 @@ mod collect {
 
 mod transform {
     use anyhow::Context;
+    use colored::Colorize;
+    use std::ffi::OsStr;
     use std::path::Path;
     use swc_atoms::Atom;
     use swc_common::sync::Lrc;
@@ -162,7 +144,41 @@ mod transform {
             }
         }
 
-        pub fn prefix_classes(&mut self, source_file: &Path) -> anyhow::Result<Vec<u8>> {
+        pub fn prefix_all_classes_in_dir(&mut self, path: &Path) -> anyhow::Result<()> {
+            assert!(path.is_dir());
+
+            for r in path.read_dir()? {
+                match r {
+                    Ok(entry) => {
+                        let filepath = entry.path();
+
+                        if filepath.is_dir() {
+                            self.prefix_all_classes_in_dir(&filepath)?;
+                            continue;
+                        }
+
+                        if let Some(ext) = filepath.extension() {
+                            if !["ts", "js", "jsx", "tsx"].map(OsStr::new).contains(&ext) {
+                                continue;
+                            }
+                        }
+
+                        let output = self.prefix_classes_in_file(&filepath)?;
+
+                        std::fs::write(&filepath, &output)?;
+                        eprintln!(
+                            "[INFO] transformed {}",
+                            filepath.display().to_string().green()
+                        );
+                    }
+                    Err(err) => eprintln!("[Error] {err:#}"),
+                };
+            }
+
+            Ok(())
+        }
+
+        pub fn prefix_classes_in_file(&mut self, source_file: &Path) -> anyhow::Result<Vec<u8>> {
             let cm: Lrc<SourceMap> = Default::default();
             let handler =
                 Handler::with_tty_emitter(ColorConfig::Auto, true, false, Some(cm.clone()));
@@ -257,14 +273,36 @@ mod tests {
     use insta::assert_snapshot;
     use std::fs;
 
-    #[test]
-    fn parses_classname_from_selectors_and_transforms_js_files() {
-        let js_file = "fixtures/sample.tsx";
-        let js_file_content_before = fs::read(js_file).expect("failed to read js fixture file");
+    struct JsFile(&'static str, Vec<u8>);
 
+    impl JsFile {
+        fn prep(path: &'static str) -> Self {
+            let js_file_content_before = fs::read(path).expect("failed to read js fixture file");
+            Self(path, js_file_content_before)
+        }
+
+        fn content_now(self) -> String {
+            let js_file_content_after = fs::read(self.0).expect("failed to read js fixture file");
+            String::from_utf8_lossy(&js_file_content_after).to_string()
+        }
+    }
+
+    impl Drop for JsFile {
+        fn drop(&mut self) {
+            fs::write(self.0, &self.1).expect("failed to write back to edited file")
+        }
+    }
+
+    #[test]
+    fn it_works() {
+        let jsfile = JsFile::prep("fixtures/sample.tsx");
+        let jsfile1 = JsFile::prep("fixtures/nested/sample.tsx");
+        let jsfile2 = JsFile::prep("fixtures/nested/nested/sample.tsx");
+
+        let cssfile = "fixtures/sample.css";
         let mut cmd = Command::cargo_bin("fcn").unwrap();
         let cmd = cmd
-            .args(["-i", "fixtures/sample.css", "--prefix", "tw-", "fixtures"])
+            .args(["-i", cssfile, "--prefix", "tw-", "fixtures"])
             .assert()
             .success();
 
@@ -272,19 +310,35 @@ mod tests {
 
         let output = String::from_utf8_lossy(&output.stdout);
 
-        assert_snapshot!(output);
-
-        let js_file_content_after = fs::read(js_file).expect("failed to read js fixture file");
-        let js_file_content_after = String::from_utf8_lossy(&js_file_content_after);
-
         insta::with_settings!({
-            info => &output,
-            description => String::from_utf8_lossy(&js_file_content_before),
+            info => &cssfile,
             omit_expression => true
         }, {
-            assert_snapshot!(js_file_content_after);
+            assert_snapshot!(output);
         });
 
-        fs::write(js_file, js_file_content_before).expect("failed to write back to edited file")
+        insta::with_settings!({
+            info => &jsfile.0,
+            description => output.clone(),
+            omit_expression => true
+        }, {
+            assert_snapshot!(jsfile.content_now());
+        });
+
+        insta::with_settings!({
+            info => &jsfile1.0,
+            description => output.clone(),
+            omit_expression => true
+        }, {
+            assert_snapshot!(jsfile1.content_now());
+        });
+
+        insta::with_settings!({
+            info => &jsfile2.0,
+            description => output,
+            omit_expression => true
+        }, {
+            assert_snapshot!(jsfile2.content_now());
+        });
     }
 }
