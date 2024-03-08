@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use clap::Parser;
-use collect::CollectedClassNames;
+use collect::ClassNamesCollector;
 
 #[derive(Parser)]
 struct Cli {
@@ -17,7 +17,7 @@ struct Cli {
 fn main() -> anyhow::Result<()> {
     let cli = Cli::parse();
 
-    let c = CollectedClassNames::parse(cli.css_input_file)?;
+    let c = ClassNamesCollector::parse(cli.css_input_file)?;
 
     c.report();
 
@@ -28,19 +28,21 @@ fn main() -> anyhow::Result<()> {
 
 mod collect {
     use std::path::PathBuf;
+    use std::rc::Rc;
 
-    use swc_common::{FileName, SourceFile};
+    use swc_common::errors::{ColorConfig, Handler};
+    use swc_common::{FileName, SourceMap};
     use swc_css::visit::{Visit, VisitWith};
 
     use swc_css::{ast::Rule, parser::parse_file};
 
-    pub struct CollectedClassNames {
+    pub struct ClassNamesCollector {
         pub class_names: Vec<String>,
     }
 
-    impl CollectedClassNames {
+    impl ClassNamesCollector {
         pub fn new() -> Self {
-            CollectedClassNames {
+            ClassNamesCollector {
                 class_names: vec![],
             }
         }
@@ -54,53 +56,29 @@ mod collect {
 
             let options = swc_css::parser::parser::ParserConfig::default();
 
+            let cm: Rc<SourceMap> = Default::default();
             let filename = FileName::Real(css_file);
+            let cssfile = cm.new_source_file(filename.clone(), code);
 
-            let cssfile = SourceFile::new_from(
-                filename.clone(),
-                false,
-                filename,
-                code.into(),
-                swc_common::BytePos(1),
-            );
+            let handler =
+                Handler::with_tty_emitter(ColorConfig::Auto, true, false, Some(cm.clone()));
 
             let mut errors = vec![];
             let c = parse_file::<Vec<Rule>>(&cssfile, None, options, &mut errors).unwrap();
 
-            let mut ccns = CollectedClassNames::new();
-            c.into_iter()
-                .flat_map(|rule| match rule {
-                    Rule::QualifiedRule(rule) => vec![rule],
-                    Rule::AtRule(rule) => {
-                        let rules = rule.block.expect("the only @ rules should be @media").value;
+            for e in errors {
+                e.to_diagnostics(&handler).emit();
+            }
 
-                        rules
-                            .into_iter()
-                            .map(|rule| match rule {
-                                swc_css::ast::ComponentValue::QualifiedRule(rule) => rule,
-                                _ => unreachable!("this type of rule in @media is unsupported"),
-                            })
-                            .collect::<Vec<_>>()
-                    }
-                    Rule::ListOfComponentValues(_) => {
-                        unreachable!("I don't know what this rule is, but it shouldn't happen.")
-                    }
-                })
-                .flat_map(|rule| match rule.prelude {
-                    swc_css::ast::QualifiedRulePrelude::SelectorList(selectors) => {
-                        selectors.children
-                    }
-                    _ => unreachable!("unsupported rule prelude"),
-                })
-                .for_each(|selectors| {
-                    selectors.visit_with(&mut ccns);
-                });
+            let mut ccns = ClassNamesCollector::new();
+
+            c.visit_with(&mut ccns);
 
             Ok(ccns)
         }
     }
 
-    impl Visit for CollectedClassNames {
+    impl Visit for ClassNamesCollector {
         fn visit_compound_selector(&mut self, n: &swc_css::ast::CompoundSelector) {
             let selectors = &n.subclass_selectors;
 
