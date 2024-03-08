@@ -3,6 +3,7 @@ use std::{ffi::OsStr, path::PathBuf};
 use anyhow::anyhow;
 use clap::Parser;
 use collect::ClassNamesCollector;
+use colored::Colorize;
 
 use crate::transform::PrependClassNames;
 
@@ -50,7 +51,10 @@ fn main() -> anyhow::Result<()> {
                 let output = ppc.prefix_classes(&filepath)?;
 
                 std::fs::write(&filepath, &output)?;
-                eprintln!("[INFO] transformed {}", filepath.display());
+                eprintln!(
+                    "[INFO] transformed {}",
+                    filepath.display().to_string().green()
+                );
             }
             Err(err) => eprintln!("[Error] {err:#}"),
         };
