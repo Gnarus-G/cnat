@@ -1,0 +1,12 @@
+[package]
+name = "ccss"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+anyhow = "1.0.80"
+clap = { version = "4.5.2", features = ["derive"] }
+swc_core = { version = "0.90.17", features = ["__ecma", "__utils"] }
+swc_css = "0.157.38"
