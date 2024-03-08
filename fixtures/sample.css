@@ -1,0 +1,44 @@
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+
+.\!visible {
+  visibility: visible !important;
+}
+
+.visible {
+  visibility: visible;
+}
+
+@media (min-width: 600px) {
+  .sm\:mx-1 {
+    margin-left: 1rem;
+    margin-right: 1rem;
+  }
+}
+
+.\[\&\>\*\]\:w-\[10px\]>* {
+  width: 10px;
+}
+
+.\[\&\>\.MuiButton-startIcon\]\:absolute>.MuiButton-startIcon {
+  position: absolute;
+}
+
+.\[\&\]\:last-of-type\:pb-6:last-of-type {
+  padding-bottom: 60rem;
+}
+
+@media (min-width: 600px) {
+  .sm\:\[\&_button\]\:text-sm button {
+    font-size: 1.1rem;
+  }
+}
