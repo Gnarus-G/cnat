@@ -7,11 +7,11 @@ export default function Foo() {
       intent="karma"
     >
       <Button className="[&>.MuiButton-startIcon]:absolute">
-        <span className="MuiButton-startIcon">×</span>
+        <span className="MuiButton-startIcon w-10/11">×</span>
         Button
       </Button>
 
-      <span className="[&>*]:w-10 [&]:last-of-type:pb-6 untouched"> </span>
+      <span className="[&>*]:w-[10px] [&]:last-of-type:pb-6 untouched"> </span>
     </div>
   );
 }

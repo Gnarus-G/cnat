@@ -2,4 +2,4 @@
 source: src/main.rs
 expression: output
 ---
-["sr-only", "!visible", "visible", "mx-1", "w-[10px]", "absolute", "MuiButton-startIcon", "pb-6", "text-sm"]
+["sr-only", "!visible", "visible", "mx-1", "w-[10px]", "absolute", "MuiButton-startIcon", "pb-6", "text-sm", "w-10/11", "w-10"]

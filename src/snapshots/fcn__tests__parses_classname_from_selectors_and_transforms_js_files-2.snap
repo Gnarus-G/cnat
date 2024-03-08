@@ -1,7 +1,7 @@
 ---
 source: src/main.rs
-description: "import React from \"react\";\n\nexport default function Foo() {\n  return (\n    <div\n      className=\"sr-only visible untouched sm:[&_button]:text-sm\"\n      intent=\"karma\"\n    >\n      <Button className=\"[&>.MuiButton-startIcon]:absolute\">\n        <span className=\"MuiButton-startIcon\">×</span>\n        Button\n      </Button>\n\n      <span className=\"[&>*]:w-10 [&]:last-of-type:pb-6 untouched\"> </span>\n    </div>\n  );\n}\n"
-info: "[\"sr-only\", \"!visible\", \"visible\", \"mx-1\", \"w-[10px]\", \"absolute\", \"MuiButton-startIcon\", \"pb-6\", \"text-sm\"]\n"
+description: "import React from \"react\";\n\nexport default function Foo() {\n  return (\n    <div\n      className=\"sr-only visible untouched sm:[&_button]:text-sm\"\n      intent=\"karma\"\n    >\n      <Button className=\"[&>.MuiButton-startIcon]:absolute\">\n        <span className=\"MuiButton-startIcon w-10/11\">×</span>\n        Button\n      </Button>\n\n      <span className=\"[&>*]:w-[10px] [&]:last-of-type:pb-6 untouched\"> </span>\n    </div>\n  );\n}\n"
+info: "[\"sr-only\", \"!visible\", \"visible\", \"mx-1\", \"w-[10px]\", \"absolute\", \"MuiButton-startIcon\", \"pb-6\", \"text-sm\", \"w-10/11\", \"w-10\"]\n"
 ---
 import React from "react";
 export default function Foo() {
@@ -9,7 +9,7 @@ export default function Foo() {
 
       <Button className="[&>.MuiButton-startIcon]:tw-absolute">
 
-        <span className="tw-MuiButton-startIcon">×</span>
+        <span className="tw-MuiButton-startIcon tw-w-10/11">×</span>
 
         Button
 
@@ -17,7 +17,7 @@ export default function Foo() {
 
 
 
-      <span className="[&>*]:w-10 [&]:last-of-type:tw-pb-6 untouched"> </span>
+      <span className="[&>*]:tw-w-[10px] [&]:last-of-type:tw-pb-6 untouched"> </span>
 
     </div>);
 }
