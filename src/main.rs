@@ -60,6 +60,8 @@ fn main() -> anyhow::Result<()> {
         };
     }
 
+    eprintln!("{}", "[DONE] Remember to run your formatter on the transformed files to make sure the format is as expected.".green());
+
     Ok(())
 }
 
