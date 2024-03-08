@@ -5,7 +5,7 @@ use clap::Parser;
 use collect::ClassNamesCollector;
 use colored::Colorize;
 
-use crate::transform::PrependClassNames;
+use crate::transform::ApplyTailwindPrefix;
 
 #[derive(Parser)]
 struct Cli {
@@ -36,7 +36,7 @@ fn main() -> anyhow::Result<()> {
     eprintln!("[INFO] extracted selectors");
     println!("{:?}", c.class_names);
 
-    let mut ppc = PrependClassNames::new(&cli.prefix, c.class_names);
+    let mut ppc = ApplyTailwindPrefix::new(&cli.prefix, c.class_names);
 
     for r in cli.context.read_dir()? {
         match r {
@@ -149,12 +149,12 @@ mod transform {
     use swc_ecma_parser::{lexer::Lexer, Parser, StringInput, Syntax};
     use swc_ecma_visit::{VisitMut, VisitMutWith};
 
-    pub struct PrependClassNames<'s> {
+    pub struct ApplyTailwindPrefix<'s> {
         pub prefix: &'s str,
         class_names: Vec<String>,
     }
 
-    impl<'s> PrependClassNames<'s> {
+    impl<'s> ApplyTailwindPrefix<'s> {
         pub fn new(prefix: &'s str, class_names: Vec<String>) -> Self {
             Self {
                 prefix,
@@ -213,7 +213,7 @@ mod transform {
         }
     }
 
-    impl<'s> VisitMut for PrependClassNames<'s> {
+    impl<'s> VisitMut for ApplyTailwindPrefix<'s> {
         fn visit_mut_jsx_attr(&mut self, n: &mut swc_ecma_ast::JSXAttr) {
             if let JSXAttrName::Ident(name) = &n.name {
                 let ident = &name.sym;
@@ -227,13 +227,20 @@ mod transform {
             let replacements: Vec<_> = n
                 .value
                 .split(' ')
+                .filter(|s| !s.is_empty())
                 .map(|class| {
-                    let class = class.to_string();
-                    if self.class_names.contains(&class) {
-                        format!("{}{}", self.prefix, class)
-                    } else {
-                        class
+                    let mut class_fragments: Vec<_> = class.split(':').collect();
+                    let actual_class = class_fragments
+                        .last_mut()
+                        .expect("class should have been an empty string");
+
+                    if self.class_names.contains(&actual_class.to_string()) {
+                        let prefixed = format!("{}{}", self.prefix, actual_class);
+                        *actual_class = prefixed.as_str();
+                        return class_fragments.join(":");
                     }
+
+                    class.to_string()
                 })
                 .collect();
 
@@ -273,6 +280,7 @@ mod tests {
         insta::with_settings!({
             info => &output,
             description => String::from_utf8_lossy(&js_file_content_before),
+            omit_expression => true
         }, {
             assert_snapshot!(js_file_content_after);
         });
