@@ -317,7 +317,7 @@ mod tests {
         let cssfile = "fixtures/sample.css";
         let mut cmd = Command::cargo_bin("fcn").unwrap();
         let cmd = cmd
-            .args(["-i", cssfile, "--prefix", "tw-", "fixtures"])
+            .args(["prefix", "-i", cssfile, "--prefix", "tw-", "fixtures"])
             .assert()
             .success();
 
