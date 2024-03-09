@@ -10,6 +10,9 @@ use scope::Scope;
 
 use crate::transform::ApplyTailwindPrefix;
 
+/// Class Name Alteration Tool, cnat.
+/// Systematically apply certain modifications to classes, class names, used
+/// in your frontend codebase.
 #[derive(Parser)]
 #[clap(about, author, version)]
 struct Cli {
@@ -375,7 +378,7 @@ mod tests {
         ];
 
         let cssfile = "fixtures/sample.css";
-        let mut cmd = Command::cargo_bin("fcn").unwrap();
+        let mut cmd = Command::cargo_bin("cnat").unwrap();
         let cmd = cmd
             .args(["prefix", "-i", cssfile, "--prefix", "tw-", context_dir])
             .assert()
@@ -414,7 +417,7 @@ mod tests {
 
         let cssfile = "fixtures/sample.css";
         let scopes = "fn:cva";
-        let mut cmd = Command::cargo_bin("fcn").unwrap();
+        let mut cmd = Command::cargo_bin("cnat").unwrap();
         let cmd = cmd
             .args([
                 "prefix",
@@ -463,7 +466,7 @@ mod tests {
 
         let cssfile = "fixtures/sample.css";
         let scopes = "att:classes,*ClassName";
-        let mut cmd = Command::cargo_bin("fcn").unwrap();
+        let mut cmd = Command::cargo_bin("cnat").unwrap();
         let cmd = cmd
             .args([
                 "prefix",
@@ -513,7 +516,7 @@ mod tests {
 
         let cssfile = "fixtures/sample.css";
         let scopes = "prop:classes prop:className";
-        let mut cmd = Command::cargo_bin("fcn").unwrap();
+        let mut cmd = Command::cargo_bin("cnat").unwrap();
         let cmd = cmd
             .args([
                 "prefix",
