@@ -45,6 +45,10 @@ It will match any class in the source code with classes found in `legacy-tw.css`
 
 Add the prefix in the legacy config file.
 
+**Pro Tip**: Run your code formatter before running `cnat`. Check the formatted code into version control.
+Then run the command, and run your code formatter again. Now you can go through and check the git diffs to make sure everything is
+allright.
+
 ```js
 /** @type {import('tailwindcss').Config} */
 module.exports = {
