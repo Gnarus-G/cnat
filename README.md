@@ -54,6 +54,22 @@ Import that css file in where-ever the entry point for your project is. For exam
 import "./legacy-tw.css";
 ```
 
+## Install
+
+```sh
+cargo install cnat
+```
+
+```sh
+npm install -g cnat
+```
+
+Or just execute it npm:
+
+```sh
+npx cnat
+```
+
 ## Usage
 
 ```
