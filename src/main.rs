@@ -35,7 +35,7 @@ struct PrefixArgs {
 
     /// Define scope within which prefixing happens. Example: --scopes att:className,*ClassName
     /// prop:classes fn:cva
-    #[arg(short, long, num_args = 1.., value_delimiter = ' ', default_value = "att:class,className")]
+    #[arg(short, long, num_args = 1.., value_delimiter = ' ', default_value = "att:class,className fn:createElement")]
     scopes: Vec<Scope>,
 
     /// The root directory of the js/ts project.
@@ -149,12 +149,12 @@ mod transform {
         errors::{ColorConfig, Handler},
         SourceMap,
     };
-    use swc_ecma_ast::{Callee, Expr, Ident, JSXAttrName};
+    use swc_ecma_ast::{Callee, Expr, Ident, JSXAttrName, PropName};
     use swc_ecma_codegen::text_writer;
     use swc_ecma_parser::{lexer::Lexer, Parser, StringInput, Syntax};
     use swc_ecma_visit::{VisitMut, VisitMutWith};
 
-    use crate::scope::Scope;
+    use crate::scope::{Scope, ScopeVariant};
 
     pub struct ApplyTailwindPrefix<'s> {
         pub prefix: &'s str,
@@ -257,16 +257,18 @@ mod transform {
             return Ok(output);
         }
 
-        fn starts_a_valid_scope(&self, ident: &Ident) -> bool {
+        fn starts_a_valid_scope(&self, ident: &Ident, variant: ScopeVariant) -> bool {
             let ident = ident.sym.as_str();
-            self.scopes.iter().any(|scope| scope.matches(ident))
+            self.scopes
+                .iter()
+                .any(|scope| scope.matches(ident, variant))
         }
     }
 
     impl<'s> VisitMut for ApplyTailwindPrefix<'s> {
         fn visit_mut_jsx_attr(&mut self, n: &mut swc_ecma_ast::JSXAttr) {
             if let JSXAttrName::Ident(name) = &n.name {
-                if self.starts_a_valid_scope(name) {
+                if self.starts_a_valid_scope(name, ScopeVariant::AttrNames) {
                     self.is_in_scope = true;
                     n.value.visit_mut_with(self);
                     self.is_in_scope = false;
@@ -277,14 +279,29 @@ mod transform {
         fn visit_mut_call_expr(&mut self, n: &mut swc_ecma_ast::CallExpr) {
             if let Callee::Expr(expr) = &n.callee {
                 if let Expr::Ident(name) = expr.as_ref() {
-                    if self.starts_a_valid_scope(name) {
+                    if self.starts_a_valid_scope(name, ScopeVariant::FnCall) {
                         self.is_in_scope = true;
                         n.args.visit_mut_with(self);
                         self.is_in_scope = false;
                     }
                 }
             }
+
+            n.visit_mut_children_with(self);
         }
+
+        fn visit_mut_key_value_prop(&mut self, n: &mut swc_ecma_ast::KeyValueProp) {
+            if let PropName::Ident(ident) = &n.key {
+                if self.starts_a_valid_scope(ident, ScopeVariant::RecordEntries) {
+                    self.is_in_scope = true;
+                    n.value.visit_mut_with(self);
+                    self.is_in_scope = false;
+                }
+            }
+
+            n.visit_mut_children_with(self);
+        }
+
         fn visit_mut_str(&mut self, n: &mut swc_ecma_ast::Str) {
             if !self.is_in_scope {
                 return;
@@ -349,7 +366,7 @@ mod tests {
     }
 
     #[test]
-    fn it_works() {
+    fn it_works_with_default_scopes() {
         let context_dir = "basic";
         let jsfiles = [
             JsFile::prep("fixtures/sample.tsx", context_dir),
@@ -389,16 +406,15 @@ mod tests {
     }
 
     #[test]
-    fn it_works_with_cva() {
+    fn it_works_with_cva_fn_scope() {
         let context_dir = "cva";
         let jsfiles = [
             JsFile::prep("fixtures/sample.tsx", context_dir),
-            JsFile::prep("fixtures/nested/sample.tsx", context_dir),
-            JsFile::prep("fixtures/nested/nested/sample.tsx", context_dir),
             JsFile::prep("fixtures/sample2.tsx", context_dir),
         ];
 
         let cssfile = "fixtures/sample.css";
+        let scopes = "fn:cva";
         let mut cmd = Command::cargo_bin("fcn").unwrap();
         let cmd = cmd
             .args([
@@ -409,7 +425,7 @@ mod tests {
                 "tw-",
                 context_dir,
                 "--scopes",
-                "fn:cva",
+                scopes,
             ])
             .assert()
             .success();
@@ -429,7 +445,106 @@ mod tests {
             insta::with_settings!({
                 snapshot_suffix => jsfile.0.to_string_lossy(),
                 info => &jsfile.0,
-                description => output.clone(),
+                description => scopes,
+                omit_expression => true
+            }, {
+                assert_snapshot!(jsfile.content_now());
+            });
+        }
+    }
+
+    #[test]
+    fn it_works_with_classes_attribute() {
+        let context_dir = "object_inside";
+        let jsfiles = [
+            JsFile::prep("fixtures/nested/sample.tsx", context_dir),
+            JsFile::prep("fixtures/nested/nested/sample.tsx", context_dir),
+            JsFile::prep("fixtures/sample2.tsx", context_dir),
+        ];
+
+        let cssfile = "fixtures/sample.css";
+        let scopes = "att:classes";
+        let mut cmd = Command::cargo_bin("fcn").unwrap();
+        let cmd = cmd
+            .args([
+                "prefix",
+                "-i",
+                cssfile,
+                "--prefix",
+                "tw-",
+                context_dir,
+                "--scopes",
+                scopes,
+            ])
+            .assert()
+            .success();
+
+        let output = cmd.get_output();
+
+        let output = String::from_utf8_lossy(&output.stdout);
+
+        insta::with_settings!({
+            info => &cssfile,
+            omit_expression => true
+        }, {
+            assert_snapshot!(output);
+        });
+
+        for jsfile in jsfiles {
+            insta::with_settings!({
+                snapshot_suffix => jsfile.0.to_string_lossy(),
+                info => &jsfile.0,
+                description => scopes,
+                omit_expression => true
+            }, {
+                assert_snapshot!(jsfile.content_now());
+            });
+        }
+    }
+
+    #[test]
+    fn it_works_with_classes_or_classname_object_entries() {
+        let context_dir = "object_outside";
+        let jsfiles = [
+            JsFile::prep("fixtures/sample.tsx", context_dir),
+            JsFile::prep("fixtures/nested/sample.tsx", context_dir),
+            JsFile::prep("fixtures/nested/nested/sample.tsx", context_dir),
+            JsFile::prep("fixtures/sample2.tsx", context_dir),
+        ];
+
+        let cssfile = "fixtures/sample.css";
+        let scopes = "prop:classes prop:className";
+        let mut cmd = Command::cargo_bin("fcn").unwrap();
+        let cmd = cmd
+            .args([
+                "prefix",
+                "-i",
+                cssfile,
+                "--prefix",
+                "tw-",
+                context_dir,
+                "--scopes",
+                scopes,
+            ])
+            .assert()
+            .success();
+
+        let output = cmd.get_output();
+
+        let output = String::from_utf8_lossy(&output.stdout);
+
+        insta::with_settings!({
+            info => &cssfile,
+            omit_expression => true
+        }, {
+            assert_snapshot!(output);
+        });
+
+        for jsfile in jsfiles {
+            insta::with_settings!({
+                snapshot_suffix => jsfile.0.to_string_lossy(),
+                info => &jsfile.0,
+                description => scopes,
                 omit_expression => true
             }, {
                 assert_snapshot!(jsfile.content_now());

@@ -15,3 +15,7 @@ export default function Foo() {
     </div>
   );
 }
+
+const props = {
+  className: "uppercase visible",
+};

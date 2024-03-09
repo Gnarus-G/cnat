@@ -1,7 +1,7 @@
 ---
 source: src/main.rs
-description: "[\"sr-only\", \"uppercase\", \"!visible\", \"visible\", \"mx-1\", \"w-[10px]\", \"absolute\", \"MuiButton-startIcon\", \"pb-6\", \"text-sm\", \"w-10/11\", \"w-10\", \"bg-blue-500\", \"text-white\", \"bg-blue-600\", \"bg-white\", \"py-1\", \"py-2\", \"px-2\", \"px-4\", \"border-gray-400\", \"text-gray-800\", \"bg-gray-100\"]\n"
-info: cva/fixtures/sample2.tsx
+description: "prop:classes prop:className"
+info: object_outside/fixtures/sample2.tsx
 ---
 import React from "react";
 import { cva, type VariantProps } from "class-variance-authority";
@@ -9,26 +9,26 @@ const button = cva("button", {
     variants: {
         intent: {
             primary: [
-                "tw-bg-blue-500",
-                "tw-text-white",
-                "hover:tw-bg-blue-600"
+                "bg-blue-500",
+                "text-white",
+                "hover:bg-blue-600"
             ],
             secondary: [
-                "tw-bg-white",
-                "tw-text-gray-800",
-                "tw-border-gray-400",
-                "hover:tw-bg-gray-100"
+                "bg-white",
+                "text-gray-800",
+                "border-gray-400",
+                "hover:bg-gray-100"
             ]
         },
         size: {
             small: [
-                "tw-text-sm",
-                "tw-py-1",
-                "tw-px-2"
+                "text-sm",
+                "py-1",
+                "px-2"
             ],
             medium: [
-                "tw-py-2",
-                "tw-px-4"
+                "py-2",
+                "px-4"
             ]
         }
     },
@@ -36,7 +36,7 @@ const button = cva("button", {
         {
             intent: "primary",
             size: "medium",
-            class: "tw-uppercase"
+            class: "uppercase"
         }
     ],
     defaultVariants: {

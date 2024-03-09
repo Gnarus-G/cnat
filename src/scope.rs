@@ -31,16 +31,16 @@ pub struct Scope {
 }
 
 impl Scope {
-    pub fn matches(&self, s: &str) -> bool {
+    pub fn matches(&self, s: &str, s_variant: ScopeVariant) -> bool {
         for value in self.values.iter() {
             let matches = match value.0 {
                 MatchType::Contains => value.1.contains(s),
-                MatchType::Is => value.1.contains(s),
+                MatchType::Is => *value.1 == *s,
                 MatchType::StartsWith => value.1.starts_with(s),
                 MatchType::EndWith => value.1.ends_with(s),
             };
 
-            if matches {
+            if matches && self.variant == s_variant {
                 return true;
             }
         }
@@ -123,5 +123,22 @@ mod tests {
                 values: vec![ScopeValue(MatchType::Is, "cva".into())].into_boxed_slice()
             }
         )
+    }
+
+    #[test]
+    fn it_matches() {
+        let scope = Scope {
+            variant: ScopeVariant::RecordEntries,
+            values: vec![
+                ScopeValue(MatchType::Is, "classes".into()),
+                ScopeValue(MatchType::Is, "className".into()),
+            ]
+            .into_boxed_slice(),
+        };
+
+        assert!(!scope.matches("className", ScopeVariant::AttrNames));
+        assert!(!scope.matches("class", ScopeVariant::RecordEntries));
+
+        assert!(scope.matches("className", ScopeVariant::RecordEntries));
     }
 }

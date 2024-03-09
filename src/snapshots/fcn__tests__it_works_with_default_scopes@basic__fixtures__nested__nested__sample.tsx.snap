@@ -21,3 +21,6 @@ export default function Foo() {
 
     </div>);
 }
+export const button = React.createElement("button", {
+    className: "uppercase"
+});
