@@ -1,3 +1,10 @@
+[![crates.io](https://img.shields.io/crates/v/cnat.svg)](https://crates.io/crates/cnat)
+[![npm version](https://img.shields.io/npm/v/cnat.svg)](https://www.npmjs.com/package/cnat)
+
+# CNAT
+
+Class Name Alteration Tool. Systematically change all the class names in your codebase.
+
 ## Install
 
 ```sh
@@ -6,12 +13,6 @@ cargo install cnat
 
 ```sh
 npm install -g cnat
-```
-
-Or just execute it npm:
-
-```sh
-npx cnat
 ```
 
 ## Why?
