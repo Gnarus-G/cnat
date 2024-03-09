@@ -65,10 +65,24 @@ impl FromStr for Scope {
             .split(',')
             .filter(|v| !v.is_empty())
             .map(|v| {
-                let mt = MatchType::default();
-                ScopeValue(mt, v.into())
+                let mut mt = MatchType::default();
+
+                let [identifier] = v.split('*').filter(|v| !v.is_empty()).collect::<Vec<_>>()[..]
+                else {
+                    return Err(anyhow!("cannot have a wildcard in the middle"));
+                };
+
+                if v.starts_with('*') && v.ends_with('*') {
+                    mt = MatchType::Contains;
+                } else if v.starts_with('*') {
+                    mt = MatchType::EndWith;
+                } else if v.ends_with('*') {
+                    mt = MatchType::StartsWith;
+                }
+
+                Ok(ScopeValue(mt, identifier.into()))
             })
-            .collect::<Vec<_>>();
+            .collect::<Result<Vec<_>, anyhow::Error>>()?;
 
         let values = values.into();
 
@@ -123,6 +137,62 @@ mod tests {
                 values: vec![ScopeValue(MatchType::Is, "cva".into())].into_boxed_slice()
             }
         )
+    }
+
+    #[test]
+    fn it_parses_starting_wildcard() {
+        assert_eq!(
+            Scope::from_str("att:class,*ClassName").unwrap(),
+            Scope {
+                variant: ScopeVariant::AttrNames,
+                values: vec![
+                    ScopeValue(MatchType::Is, "class".into()),
+                    ScopeValue(MatchType::EndWith, "ClassName".into()),
+                ]
+                .into_boxed_slice()
+            }
+        );
+
+        assert_eq!(
+            Scope::from_str("prop:classes,***ClassName,").unwrap(),
+            Scope {
+                variant: ScopeVariant::RecordEntries,
+                values: vec![
+                    ScopeValue(MatchType::Is, "classes".into(),),
+                    ScopeValue(MatchType::EndWith, "ClassName".into())
+                ]
+                .into_boxed_slice()
+            }
+        );
+    }
+
+    #[test]
+    fn it_parses_ending_wildcard() {
+        assert_eq!(
+            Scope::from_str("att:class,class**").unwrap(),
+            Scope {
+                variant: ScopeVariant::AttrNames,
+                values: vec![
+                    ScopeValue(MatchType::Is, "class".into()),
+                    ScopeValue(MatchType::StartsWith, "class".into()),
+                ]
+                .into_boxed_slice()
+            }
+        );
+
+        assert_eq!(
+            Scope::from_str("prop:class**").unwrap(),
+            Scope {
+                variant: ScopeVariant::RecordEntries,
+                values: vec![ScopeValue(MatchType::StartsWith, "class".into())].into_boxed_slice()
+            }
+        );
+    }
+
+    #[test]
+    fn it_rejects_middle_wildcard() {
+        Scope::from_str("att:class,class*name").unwrap_err();
+        Scope::from_str("prop:class*name").unwrap_err();
     }
 
     #[test]

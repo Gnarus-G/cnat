@@ -33,8 +33,7 @@ struct PrefixArgs {
     #[arg(short, long)]
     prefix: String,
 
-    /// Define scope within which prefixing happens. Example: --scopes att:className,*ClassName
-    /// prop:classes fn:cva
+    /// Define scope within which prefixing happens. Example: --scopes 'att:className,*ClassName prop:classes fn:cva'
     #[arg(short, long, num_args = 1.., value_delimiter = ' ', default_value = "att:class,className fn:createElement")]
     scopes: Vec<Scope>,
 
