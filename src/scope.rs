@@ -34,10 +34,10 @@ impl Scope {
     pub fn matches(&self, s: &str, s_variant: ScopeVariant) -> bool {
         for value in self.values.iter() {
             let matches = match value.0 {
-                MatchType::Contains => value.1.contains(s),
+                MatchType::Contains => s.contains(value.1.as_ref()),
                 MatchType::Is => *value.1 == *s,
-                MatchType::StartsWith => value.1.starts_with(s),
-                MatchType::EndWith => value.1.ends_with(s),
+                MatchType::StartsWith => s.starts_with(value.1.as_ref()),
+                MatchType::EndWith => s.ends_with(value.1.as_ref()),
             };
 
             if matches && self.variant == s_variant {
@@ -140,5 +140,55 @@ mod tests {
         assert!(!scope.matches("class", ScopeVariant::RecordEntries));
 
         assert!(scope.matches("className", ScopeVariant::RecordEntries));
+    }
+
+    #[test]
+    fn it_matches_ends() {
+        let scope = Scope {
+            variant: ScopeVariant::AttrNames,
+            values: vec![ScopeValue(MatchType::EndWith, "ClassName".into())].into_boxed_slice(),
+        };
+
+        assert!(!scope.matches("className", ScopeVariant::AttrNames));
+        assert!(!scope.matches("class", ScopeVariant::RecordEntries));
+
+        assert!(scope.matches("iconClassName", ScopeVariant::AttrNames));
+        assert!(scope.matches("bodyClassName", ScopeVariant::AttrNames));
+        assert!(scope.matches("buttonClassName", ScopeVariant::AttrNames));
+    }
+
+    #[test]
+    fn it_matches_starts() {
+        let scope = Scope {
+            variant: ScopeVariant::AttrNames,
+            values: vec![ScopeValue(MatchType::StartsWith, "class".into())].into_boxed_slice(),
+        };
+
+        assert!(!scope.matches("class", ScopeVariant::RecordEntries));
+        assert!(scope.matches("class", ScopeVariant::AttrNames));
+        assert!(scope.matches("className", ScopeVariant::AttrNames));
+    }
+
+    #[test]
+    fn it_matches_contains() {
+        let scope = Scope {
+            variant: ScopeVariant::AttrNames,
+            values: vec![ScopeValue(MatchType::Contains, "class".into())].into_boxed_slice(),
+        };
+
+        assert!(!scope.matches("class", ScopeVariant::RecordEntries));
+        assert!(scope.matches("class", ScopeVariant::AttrNames));
+        assert!(scope.matches("className", ScopeVariant::AttrNames));
+        assert!(scope.matches("firstclassName", ScopeVariant::AttrNames));
+        assert!(scope.matches("buttonclassName", ScopeVariant::AttrNames));
+
+        let scope = Scope {
+            variant: ScopeVariant::AttrNames,
+            values: vec![ScopeValue(MatchType::Contains, "Class".into())].into_boxed_slice(),
+        };
+
+        assert!(scope.matches("iconClassName", ScopeVariant::AttrNames));
+        assert!(scope.matches("bodyClassName", ScopeVariant::AttrNames));
+        assert!(scope.matches("buttonClassName", ScopeVariant::AttrNames));
     }
 }
