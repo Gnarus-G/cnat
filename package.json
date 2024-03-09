@@ -1,6 +1,6 @@
 {
   "name": "cnat",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Systematically apply certain modifications to classes, class names, used in your frontend codebase.",
   "bin": {
     "cnat": "./npm/run.js"
