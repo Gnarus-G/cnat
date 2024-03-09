@@ -10,11 +10,10 @@ use scope::Scope;
 
 use crate::transform::ApplyTailwindPrefix;
 
-/// Class Name Alteration Tool, cnat.
 /// Systematically apply certain modifications to classes, class names, used
 /// in your frontend codebase.
 #[derive(Parser)]
-#[clap(about, author, version)]
+#[clap(name = "cnat (Class Name Alteration Tool)", about, author, version)]
 struct Cli {
     #[command(subcommand)]
     command: Command,
