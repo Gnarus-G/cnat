@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use anyhow::anyhow;
-use clap::{Args, Parser, Subcommand};
+use clap::{Args, CommandFactory, Parser, Subcommand};
 use cnat::scope::Scope;
 use collect::ClassNamesCollector;
 use colored::Colorize;
@@ -21,6 +21,12 @@ struct Cli {
 enum Command {
     /// Apply a prefix to all the tailwind classes in every js file in a project.
     Prefix(PrefixArgs),
+
+    /// Generate completions for a specified shell
+    Completion {
+        // The shell for which to generate completions
+        shell: clap_complete::Shell,
+    },
 }
 
 #[derive(Args)]
@@ -44,7 +50,13 @@ struct PrefixArgs {
 fn main() -> anyhow::Result<()> {
     let cli = Cli::parse();
 
-    let Command::Prefix(cli) = cli.command;
+    let cli = match cli.command {
+        Command::Prefix(cli) => cli,
+        Command::Completion { shell } => {
+            clap_complete::generate(shell, &mut Cli::command(), "cnat", &mut std::io::stdout());
+            return Ok(());
+        }
+    };
 
     if !cli.context.is_dir() {
         return Err(anyhow!(

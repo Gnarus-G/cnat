@@ -74,11 +74,14 @@ import "./legacy-tw.css";
 ## Usage
 
 ```
+Systematically apply certain modifications to classes, class names, used in your frontend codebase.
+
 Usage: cnat <COMMAND>
 
 Commands:
-  prefix  Apply a prefix to all the tailwind classes in every js file in a project
-  help    Print this message or the help of the given subcommand(s)
+  prefix      Apply a prefix to all the tailwind classes in every js file in a project
+  completion  Generate completions for a specified shell
+  help        Print this message or the help of the given subcommand(s)
 
 Options:
   -h, --help     Print help
