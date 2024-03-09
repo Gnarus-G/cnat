@@ -85,6 +85,11 @@
   padding-bottom: 0.5rem;
 }
 
+.px-2 {
+  padding-left: 1rem;
+  padding-right: 1rem;
+}
+
 .px-4 {
   padding-left: 1rem;
   padding-right: 1rem;
