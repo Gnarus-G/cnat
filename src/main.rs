@@ -1,9 +1,12 @@
+mod scope;
+
 use std::path::PathBuf;
 
 use anyhow::anyhow;
 use clap::{Args, Parser, Subcommand};
 use collect::ClassNamesCollector;
 use colored::Colorize;
+use scope::Scope;
 
 use crate::transform::ApplyTailwindPrefix;
 
@@ -30,6 +33,10 @@ struct PrefixArgs {
     #[arg(long)]
     prefix: String,
 
+    #[arg(short, long, default_value = "att:class,className")]
+    /// Define scope within which prefixing happens.
+    scopes: Vec<Scope>,
+
     /// The root directory of the js/ts project.
     context: PathBuf,
 }
@@ -51,7 +58,7 @@ fn main() -> anyhow::Result<()> {
     eprintln!("[INFO] extracted selectors");
     println!("{:?}", c.class_names);
 
-    let mut ppc = ApplyTailwindPrefix::new(&cli.prefix, c.class_names);
+    let mut ppc = ApplyTailwindPrefix::new(&cli.prefix, c.class_names, cli.scopes);
 
     ppc.prefix_all_classes_in_dir(&cli.context)?;
 
@@ -141,21 +148,27 @@ mod transform {
         errors::{ColorConfig, Handler},
         SourceMap,
     };
-    use swc_ecma_ast::JSXAttrName;
+    use swc_ecma_ast::{Ident, JSXAttrName};
     use swc_ecma_codegen::text_writer;
     use swc_ecma_parser::{lexer::Lexer, Parser, StringInput, Syntax};
     use swc_ecma_visit::{VisitMut, VisitMutWith};
 
+    use crate::scope::Scope;
+
     pub struct ApplyTailwindPrefix<'s> {
         pub prefix: &'s str,
         class_names: Vec<String>,
+        scopes: Vec<Scope>,
+        is_in_scope: bool,
     }
 
     impl<'s> ApplyTailwindPrefix<'s> {
-        pub fn new(prefix: &'s str, class_names: Vec<String>) -> Self {
+        pub fn new(prefix: &'s str, class_names: Vec<String>, scopes: Vec<Scope>) -> Self {
             Self {
                 prefix,
                 class_names,
+                scopes,
+                is_in_scope: false,
             }
         }
 
@@ -242,19 +255,29 @@ mod transform {
 
             return Ok(output);
         }
+
+        fn starts_a_valid_scope(&self, ident: &Ident) -> bool {
+            let ident = ident.sym.as_str();
+            self.scopes.iter().any(|scope| scope.matches(ident))
+        }
     }
 
     impl<'s> VisitMut for ApplyTailwindPrefix<'s> {
         fn visit_mut_jsx_attr(&mut self, n: &mut swc_ecma_ast::JSXAttr) {
             if let JSXAttrName::Ident(name) = &n.name {
-                let ident = &name.sym;
-                if ident.contains("class") || ident.contains("Class") {
+                if self.starts_a_valid_scope(name) {
+                    self.is_in_scope = true;
                     n.value.visit_mut_with(self);
+                    self.is_in_scope = false;
                 }
             }
         }
 
         fn visit_mut_str(&mut self, n: &mut swc_ecma_ast::Str) {
+            if !self.is_in_scope {
+                return;
+            }
+
             let replacements: Vec<_> = n
                 .value
                 .split(' ')
@@ -263,7 +286,7 @@ mod transform {
                     let mut class_fragments: Vec<_> = class.split(':').collect();
                     let actual_class = class_fragments
                         .last_mut()
-                        .expect("class should have been an empty string");
+                        .expect("class should not have been an empty string");
 
                     if self.class_names.contains(&actual_class.to_string()) {
                         let prefixed = format!("{}{}", self.prefix, actual_class);
@@ -310,14 +333,51 @@ mod tests {
 
     #[test]
     fn it_works() {
-        let jsfile = JsFile::prep("fixtures/sample.tsx");
-        let jsfile1 = JsFile::prep("fixtures/nested/sample.tsx");
-        let jsfile2 = JsFile::prep("fixtures/nested/nested/sample.tsx");
+        let jsfiles = [
+            JsFile::prep("fixtures/sample.tsx"),
+            JsFile::prep("fixtures/nested/sample.tsx"),
+            JsFile::prep("fixtures/nested/nested/sample.tsx"),
+        ];
 
         let cssfile = "fixtures/sample.css";
         let mut cmd = Command::cargo_bin("fcn").unwrap();
         let cmd = cmd
             .args(["prefix", "-i", cssfile, "--prefix", "tw-", "fixtures"])
+            .assert()
+            .success();
+
+        let output = cmd.get_output();
+
+        let output = String::from_utf8_lossy(&output.stdout);
+
+        insta::with_settings!({
+            info => &cssfile,
+            omit_expression => true
+        }, {
+            assert_snapshot!(output);
+        });
+
+        for jsfile in jsfiles {
+            insta::with_settings!({
+                info => &jsfile.0,
+                description => output.clone(),
+                omit_expression => true
+            }, {
+                assert_snapshot!(jsfile.content_now());
+            });
+        }
+    }
+
+    #[test]
+    fn it_works_with_cva() {
+        let jsfile = JsFile::prep("fixtures/sample2.tsx");
+
+        let cssfile = "fixtures/sample.css";
+        let mut cmd = Command::cargo_bin("fcn").unwrap();
+        let cmd = cmd
+            .args([
+                "prefix", "-i", cssfile, "--prefix", "tw-", "fixtures", "--scopes", "fn:cva",
+            ])
             .assert()
             .success();
 
@@ -338,22 +398,6 @@ mod tests {
             omit_expression => true
         }, {
             assert_snapshot!(jsfile.content_now());
-        });
-
-        insta::with_settings!({
-            info => &jsfile1.0,
-            description => output.clone(),
-            omit_expression => true
-        }, {
-            assert_snapshot!(jsfile1.content_now());
-        });
-
-        insta::with_settings!({
-            info => &jsfile2.0,
-            description => output,
-            omit_expression => true
-        }, {
-            assert_snapshot!(jsfile2.content_now());
         });
     }
 }
