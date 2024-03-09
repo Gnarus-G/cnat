@@ -30,11 +30,12 @@ struct PrefixArgs {
     css_file: PathBuf,
 
     /// The prefix to apply to all the tailwind class names found
-    #[arg(long)]
+    #[arg(short, long)]
     prefix: String,
 
-    #[arg(short, long, default_value = "att:class,className")]
-    /// Define scope within which prefixing happens.
+    /// Define scope within which prefixing happens. Example: --scopes att:className,*ClassName
+    /// prop:classes fn:cva
+    #[arg(short, long, num_args = 1.., value_delimiter = ' ', default_value = "att:class,className")]
     scopes: Vec<Scope>,
 
     /// The root directory of the js/ts project.
@@ -148,7 +149,7 @@ mod transform {
         errors::{ColorConfig, Handler},
         SourceMap,
     };
-    use swc_ecma_ast::{Ident, JSXAttrName};
+    use swc_ecma_ast::{Callee, Expr, Ident, JSXAttrName};
     use swc_ecma_codegen::text_writer;
     use swc_ecma_parser::{lexer::Lexer, Parser, StringInput, Syntax};
     use swc_ecma_visit::{VisitMut, VisitMutWith};
@@ -273,6 +274,17 @@ mod transform {
             }
         }
 
+        fn visit_mut_call_expr(&mut self, n: &mut swc_ecma_ast::CallExpr) {
+            if let Callee::Expr(expr) = &n.callee {
+                if let Expr::Ident(name) = expr.as_ref() {
+                    if self.starts_a_valid_scope(name) {
+                        self.is_in_scope = true;
+                        n.args.visit_mut_with(self);
+                        self.is_in_scope = false;
+                    }
+                }
+            }
+        }
         fn visit_mut_str(&mut self, n: &mut swc_ecma_ast::Str) {
             if !self.is_in_scope {
                 return;
@@ -309,40 +321,47 @@ mod transform {
 mod tests {
     use assert_cmd::Command;
     use insta::assert_snapshot;
-    use std::fs;
+    use std::{fs, path::PathBuf};
 
-    struct JsFile(&'static str, Vec<u8>);
+    struct JsFile(PathBuf, Vec<u8>);
 
     impl JsFile {
-        fn prep(path: &'static str) -> Self {
+        fn prep(path: &'static str, temp_dir: &str) -> Self {
             let js_file_content_before = fs::read(path).expect("failed to read js fixture file");
-            Self(path, js_file_content_before)
+
+            let new_path = std::path::PathBuf::from(format!("{}/{}", temp_dir, path));
+            fs::create_dir_all(new_path.parent().unwrap()).unwrap();
+            fs::copy(path, &new_path).unwrap();
+
+            Self(new_path, js_file_content_before)
         }
 
-        fn content_now(self) -> String {
-            let js_file_content_after = fs::read(self.0).expect("failed to read js fixture file");
+        fn content_now(&self) -> String {
+            let js_file_content_after = fs::read(&self.0).expect("failed to read js fixture file");
             String::from_utf8_lossy(&js_file_content_after).to_string()
         }
     }
 
     impl Drop for JsFile {
         fn drop(&mut self) {
-            fs::write(self.0, &self.1).expect("failed to write back to edited file")
+            fs::remove_file(&self.0).expect("failed to remove a file")
         }
     }
 
     #[test]
     fn it_works() {
+        let context_dir = "basic";
         let jsfiles = [
-            JsFile::prep("fixtures/sample.tsx"),
-            JsFile::prep("fixtures/nested/sample.tsx"),
-            JsFile::prep("fixtures/nested/nested/sample.tsx"),
+            JsFile::prep("fixtures/sample.tsx", context_dir),
+            JsFile::prep("fixtures/nested/sample.tsx", context_dir),
+            JsFile::prep("fixtures/nested/nested/sample.tsx", context_dir),
+            JsFile::prep("fixtures/sample2.tsx", context_dir),
         ];
 
         let cssfile = "fixtures/sample.css";
         let mut cmd = Command::cargo_bin("fcn").unwrap();
         let cmd = cmd
-            .args(["prefix", "-i", cssfile, "--prefix", "tw-", "fixtures"])
+            .args(["prefix", "-i", cssfile, "--prefix", "tw-", context_dir])
             .assert()
             .success();
 
@@ -359,6 +378,7 @@ mod tests {
 
         for jsfile in jsfiles {
             insta::with_settings!({
+                snapshot_suffix => jsfile.0.to_string_lossy(),
                 info => &jsfile.0,
                 description => output.clone(),
                 omit_expression => true
@@ -370,13 +390,26 @@ mod tests {
 
     #[test]
     fn it_works_with_cva() {
-        let jsfile = JsFile::prep("fixtures/sample2.tsx");
+        let context_dir = "cva";
+        let jsfiles = [
+            JsFile::prep("fixtures/sample.tsx", context_dir),
+            JsFile::prep("fixtures/nested/sample.tsx", context_dir),
+            JsFile::prep("fixtures/nested/nested/sample.tsx", context_dir),
+            JsFile::prep("fixtures/sample2.tsx", context_dir),
+        ];
 
         let cssfile = "fixtures/sample.css";
         let mut cmd = Command::cargo_bin("fcn").unwrap();
         let cmd = cmd
             .args([
-                "prefix", "-i", cssfile, "--prefix", "tw-", "fixtures", "--scopes", "fn:cva",
+                "prefix",
+                "-i",
+                cssfile,
+                "--prefix",
+                "tw-",
+                context_dir,
+                "--scopes",
+                "fn:cva",
             ])
             .assert()
             .success();
@@ -392,12 +425,15 @@ mod tests {
             assert_snapshot!(output);
         });
 
-        insta::with_settings!({
-            info => &jsfile.0,
-            description => output.clone(),
-            omit_expression => true
-        }, {
-            assert_snapshot!(jsfile.content_now());
-        });
+        for jsfile in jsfiles {
+            insta::with_settings!({
+                snapshot_suffix => jsfile.0.to_string_lossy(),
+                info => &jsfile.0,
+                description => output.clone(),
+                omit_expression => true
+            }, {
+                assert_snapshot!(jsfile.content_now());
+            });
+        }
     }
 }
