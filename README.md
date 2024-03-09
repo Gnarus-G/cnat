@@ -1,3 +1,19 @@
+## Install
+
+```sh
+cargo install cnat
+```
+
+```sh
+npm install -g cnat
+```
+
+Or just execute it npm:
+
+```sh
+npx cnat
+```
+
 ## Why?
 
 Because you joined a project that has some awful old tailwind configs: weird bespoke spacing configuration,
@@ -52,22 +68,6 @@ Import that css file in where-ever the entry point for your project is. For exam
 
 ```ts
 import "./legacy-tw.css";
-```
-
-## Install
-
-```sh
-cargo install cnat
-```
-
-```sh
-npm install -g cnat
-```
-
-Or just execute it npm:
-
-```sh
-npx cnat
 ```
 
 ## Usage
