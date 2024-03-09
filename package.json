@@ -1,0 +1,33 @@
+{
+  "name": "<name>",
+  "version": "<version>",
+  "description": "<desc>",
+  "bin": {
+    "<name>": "./npm/run.js"
+  },
+  "files": [
+    "npm/**/*",
+    "LICENSE",
+    "README.md"
+  ],
+  "homepage": "https://github.com/Gnarus-G/<name>#readme",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Gnarus-G/<name>"
+  },
+  "scripts": {
+    "postinstall": "node ./npm/install.js"
+  },
+  "keywords": [],
+  "author": "Gnarus-G",
+  "license": "",
+  "dependencies": {
+    "binary-install": "^1.1.0",
+    "dotenv": "^16.3.1",
+    "tar": "^6.1.15",
+    "zod": "^3.21.4"
+  },
+  "devDependencies": {
+    "typescript": "^5.1.6"
+  }
+}
