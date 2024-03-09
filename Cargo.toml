@@ -1,7 +1,11 @@
 [package]
 name = "cnat"
 version = "0.0.1"
+description = "Systematically apply certain modifications to classes, class names, used in your frontend codebase."
 edition = "2021"
+homepage = "https://github.com/Gnarus-G/cnat"
+repository = "https://github.com/Gnarus-G/cnat"
+license = "GPL-2.0"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
