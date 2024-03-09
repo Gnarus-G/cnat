@@ -1,12 +1,10 @@
-mod scope;
-
 use std::path::PathBuf;
 
 use anyhow::anyhow;
 use clap::{Args, Parser, Subcommand};
+use cnat::scope::Scope;
 use collect::ClassNamesCollector;
 use colored::Colorize;
-use scope::Scope;
 
 use crate::transform::ApplyTailwindPrefix;
 
@@ -60,7 +58,7 @@ fn main() -> anyhow::Result<()> {
     eprintln!("[INFO] extracted selectors");
     println!("{:?}", c.class_names);
 
-    let mut ppc = ApplyTailwindPrefix::new(&cli.prefix, c.class_names, cli.scopes);
+    let mut ppc = ApplyTailwindPrefix::new(&cli.prefix, &c.class_names, &cli.scopes);
 
     ppc.prefix_all_classes_in_dir(&cli.context)?;
 
@@ -80,7 +78,7 @@ mod collect {
     use swc_css::{ast::Rule, parser::parse_file};
 
     pub struct ClassNamesCollector {
-        pub class_names: Vec<String>,
+        pub class_names: Vec<cnat::Str>,
     }
 
     impl ClassNamesCollector {
@@ -130,9 +128,9 @@ mod collect {
                 .for_each(|s| {
                     if s.text.value.contains(':') {
                         let cn = s.text.value.split(':').last().unwrap();
-                        self.class_names.push(cn.to_string());
+                        self.class_names.push(cn.into());
                     } else {
-                        self.class_names.push(s.text.value.to_string());
+                        self.class_names.push(s.text.value.as_str().into());
                     }
                 });
         }
@@ -155,17 +153,21 @@ mod transform {
     use swc_ecma_parser::{lexer::Lexer, Parser, StringInput, Syntax};
     use swc_ecma_visit::{VisitMut, VisitMutWith};
 
-    use crate::scope::{Scope, ScopeVariant};
+    use cnat::scope::{Scope, ScopeVariant};
 
-    pub struct ApplyTailwindPrefix<'s> {
+    pub struct ApplyTailwindPrefix<'s, 'cn, 'scopes> {
         pub prefix: &'s str,
-        class_names: Vec<String>,
-        scopes: Vec<Scope>,
+        class_names: &'cn [cnat::Str],
+        scopes: &'scopes [Scope],
         is_in_scope: bool,
     }
 
-    impl<'s> ApplyTailwindPrefix<'s> {
-        pub fn new(prefix: &'s str, class_names: Vec<String>, scopes: Vec<Scope>) -> Self {
+    impl<'s, 'cn, 'scopes> ApplyTailwindPrefix<'s, 'cn, 'scopes> {
+        pub fn new(
+            prefix: &'s str,
+            class_names: &'cn [cnat::Str],
+            scopes: &'scopes [Scope],
+        ) -> Self {
             Self {
                 prefix,
                 class_names,
@@ -266,7 +268,7 @@ mod transform {
         }
     }
 
-    impl<'s> VisitMut for ApplyTailwindPrefix<'s> {
+    impl<'s, 'cn, 'scopes> VisitMut for ApplyTailwindPrefix<'s, 'cn, 'scopes> {
         fn visit_mut_jsx_attr(&mut self, n: &mut swc_ecma_ast::JSXAttr) {
             if let JSXAttrName::Ident(name) = &n.name {
                 if self.starts_a_valid_scope(name, ScopeVariant::AttrNames) {
@@ -318,7 +320,7 @@ mod transform {
                         .last_mut()
                         .expect("class should not have been an empty string");
 
-                    if self.class_names.contains(&actual_class.to_string()) {
+                    if self.class_names.iter().any(|name| name == *actual_class) {
                         let prefixed = format!("{}{}", self.prefix, actual_class);
                         *actual_class = prefixed.as_str();
                         return class_fragments.join(":");

@@ -2,8 +2,7 @@ use std::str::FromStr;
 
 use anyhow::{anyhow, Context};
 
-type Array<T> = Box<[T]>;
-type Str = Box<str>;
+use crate::{Array, Str};
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum ScopeVariant {
@@ -34,10 +33,10 @@ impl Scope {
     pub fn matches(&self, s: &str, s_variant: ScopeVariant) -> bool {
         for value in self.values.iter() {
             let matches = match value.0 {
-                MatchType::Contains => s.contains(value.1.as_ref()),
+                MatchType::Contains => s.contains(&*value.1),
                 MatchType::Is => *value.1 == *s,
-                MatchType::StartsWith => s.starts_with(value.1.as_ref()),
-                MatchType::EndWith => s.ends_with(value.1.as_ref()),
+                MatchType::StartsWith => s.starts_with(&*value.1),
+                MatchType::EndWith => s.ends_with(&*value.1),
             };
 
             if matches && self.variant == s_variant {
