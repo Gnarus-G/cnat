@@ -23,6 +23,8 @@ export function Bar() {
         root: "bg-white",
         paper: "bg-blue-500",
       }}
+      bodyClassName="bg-blue-500 text-sm"
+      buttonClassName="py-2 text-sm"
     >
       {React.createElement(Dialog, {
         className: "w-10",

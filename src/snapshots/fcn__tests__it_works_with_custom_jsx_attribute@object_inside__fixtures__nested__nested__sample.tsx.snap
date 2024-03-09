@@ -1,6 +1,6 @@
 ---
 source: src/main.rs
-description: "att:classes"
+description: "att:classes,*ClassName"
 info: object_inside/fixtures/nested/nested/sample.tsx
 ---
 import React from "react";

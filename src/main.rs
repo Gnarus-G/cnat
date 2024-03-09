@@ -453,7 +453,7 @@ mod tests {
     }
 
     #[test]
-    fn it_works_with_classes_attribute() {
+    fn it_works_with_custom_jsx_attribute() {
         let context_dir = "object_inside";
         let jsfiles = [
             JsFile::prep("fixtures/nested/sample.tsx", context_dir),
@@ -462,7 +462,7 @@ mod tests {
         ];
 
         let cssfile = "fixtures/sample.css";
-        let scopes = "att:classes";
+        let scopes = "att:classes,*ClassName";
         let mut cmd = Command::cargo_bin("fcn").unwrap();
         let cmd = cmd
             .args([
