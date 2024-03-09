@@ -35,7 +35,8 @@ in the old `tailwind.config.js`.
 In the root of your project. Run:
 
 ```sh
-npx tailwindcss -i <(echo '@tailwind utilities;') -o legacy-tw.css
+echo '@tailwind utilities;' > temp.css
+npx tailwindcss -i temp.css -o legacy-tw.css
 cnat prefix -i legacy-tw.css --prefix 'legacy-' .
 ```
 
