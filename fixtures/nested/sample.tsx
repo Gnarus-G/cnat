@@ -15,3 +15,21 @@ export default function Foo() {
     </div>
   );
 }
+
+export function Bar() {
+  return (
+    <Paper
+      classes={{
+        root: "bg-white",
+        paper: "bg-blue-500",
+      }}
+    >
+      {React.createElement(Dialog, {
+        className: "w-10",
+        classes: {
+          root: "bg-blue-500 px-4",
+        },
+      })}
+    </Paper>
+  );
+}
