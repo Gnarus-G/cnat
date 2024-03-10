@@ -1,0 +1,31 @@
+---
+source: src/main.rs
+info: preserves_comments/fixtures/sample_comments.jsx
+---
+import React from "react";
+/**
+ * This should be preserved
+ *
+ */ export default function Foo() {
+    return (<div className="tw-sr-only tw-visible untouched sm:[&_button]:tw-text-sm" intent="karma">
+
+      {}
+
+      <Button className="[&>.MuiButton-startIcon]:tw-absolute">
+
+        <span className="tw-MuiButton-startIcon tw-w-10/11">×</span>
+
+        Button
+
+      </Button>
+
+
+
+      <span className="[&>*]:tw-w-[10px] [&]:last-of-type:tw-pb-6 untouched"> </span>
+
+    </div>);
+}
+// asdfasdf asdf;lkj
+const props = {
+    className: "uppercase visible"
+};

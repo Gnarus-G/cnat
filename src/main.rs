@@ -156,19 +156,21 @@ mod collect {
 }
 
 mod transform {
-    use anyhow::Context;
+    use anyhow::{anyhow, Context};
     use colored::Colorize;
     use std::ffi::OsStr;
     use std::path::Path;
     use swc_atoms::Atom;
+    use swc_common::comments::SingleThreadedComments;
     use swc_common::sync::Lrc;
     use swc_common::{
         errors::{ColorConfig, Handler},
         SourceMap,
     };
-    use swc_ecma_ast::{Callee, Expr, Ident, JSXAttrName, PropName};
+    use swc_ecma_ast::{Callee, EsVersion, Expr, Ident, JSXAttrName, PropName};
     use swc_ecma_codegen::text_writer;
-    use swc_ecma_parser::{lexer::Lexer, Parser, StringInput, Syntax};
+    use swc_ecma_parser::parse_file_as_module;
+    use swc_ecma_parser::Syntax;
     use swc_ecma_visit::{VisitMut, VisitMutWith};
 
     use cnat::scope::{Scope, ScopeVariant};
@@ -230,34 +232,42 @@ mod transform {
 
         pub fn prefix_classes_in_file(&mut self, source_file: &Path) -> anyhow::Result<Vec<u8>> {
             let cm: Lrc<SourceMap> = Default::default();
-            let handler =
+            let error_handler =
                 Handler::with_tty_emitter(ColorConfig::Auto, true, false, Some(cm.clone()));
 
             let fm = cm
                 .load_file(source_file)
                 .context("failed to load source file")?;
 
-            let lexer = Lexer::new(
-                Syntax::Typescript(swc_ecma_parser::TsConfig {
+            let comments_store = SingleThreadedComments::default();
+            let mut errors = vec![];
+            let syntax = match source_file.extension().and_then(|e| e.to_str()) {
+                Some("js") | Some("jsx") => Syntax::Es(swc_ecma_parser::EsConfig {
+                    jsx: true,
+                    ..Default::default()
+                }),
+                Some("ts") => Syntax::Typescript(Default::default()),
+                Some("tsx") => Syntax::Typescript(swc_ecma_parser::TsConfig {
                     tsx: true,
                     ..Default::default()
                 }),
-                // EsVersion defaults to es5
-                Default::default(),
-                StringInput::from(&*fm),
-                None,
-            );
+                None => return Err(anyhow!("unknown filetype, missing extension")),
+                ext => return Err(anyhow!("unknown filetype: {ext:?}")),
+            };
 
-            let mut parser = Parser::new_from(lexer);
+            let mut module = parse_file_as_module(
+                &fm,
+                syntax,
+                EsVersion::Es2015,
+                Some(&comments_store),
+                &mut errors,
+            )
+            .map_err(|e| e.into_diagnostic(&error_handler))
+            .expect("failed to parser module");
 
-            for e in parser.take_errors() {
-                e.into_diagnostic(&handler).emit();
+            for e in errors {
+                e.into_diagnostic(&error_handler).emit();
             }
-
-            let mut module = parser
-                .parse_module()
-                .map_err(|e| e.into_diagnostic(&handler).emit())
-                .expect("failed to parser module");
 
             module.visit_mut_children_with(self);
 
@@ -267,7 +277,7 @@ mod transform {
             let mut emitter = swc_ecma_codegen::Emitter {
                 cfg: Default::default(),
                 cm: cm.clone(),
-                comments: None,
+                comments: Some(&comments_store),
                 wr: Box::new(writer),
             };
 
@@ -571,5 +581,37 @@ mod tests {
                 assert_snapshot!(jsfile.content_now());
             });
         }
+    }
+
+    #[test]
+    fn it_preserves_comments() {
+        let context_dir = "preserves_comments";
+        let jsfile = JsFile::prep("fixtures/sample_comments.jsx", context_dir);
+
+        let cssfile = "fixtures/sample.css";
+        let mut cmd = Command::cargo_bin("cnat").unwrap();
+        let cmd = cmd
+            .args(["prefix", "-i", cssfile, "--prefix", "tw-", context_dir])
+            .assert()
+            .success();
+
+        let output = cmd.get_output();
+
+        let output = String::from_utf8_lossy(&output.stdout);
+
+        insta::with_settings!({
+            info => &cssfile,
+            omit_expression => true
+        }, {
+            assert_snapshot!(output);
+        });
+
+        insta::with_settings!({
+            snapshot_suffix => jsfile.0.to_string_lossy(),
+            info => &jsfile.0,
+            omit_expression => true
+        }, {
+            assert_snapshot!(jsfile.content_now());
+        });
     }
 }
