@@ -136,3 +136,30 @@ Options:
   -s, --scopes <SCOPES>...  Define scope within which prefixing happens. Example: --scopes 'att:className,*ClassName prop:classes fn:cva' [default: "att:class,className fn:createElement"]
   -h, --help                Print help
 ```
+
+### Scopes
+
+You may have tailwind classes in other places besides `className="..."`, or even `cva(...)`.
+For examples, the `classes` prop in mui components.
+
+You can define places for `cnat` to look for classes with `--scopes` or `-s` option.
+The syntax for a scope is <variant>:<...values>
+
+**Variants** are:
+
+- `fn` to target a function call (e.g 'fn:cva')
+- `att` to target a jsx attribute (e.g. 'att:className')
+- `prop` to target a jsx attribute (e.g. 'prop:className')
+
+**Values** are strings, and you can use a wildcard `*` at the begining or the end.
+For example 'att:className att:\*ClassName' will find classes all of these attributes
+
+```js
+<Btn
+  className="w-10 bg-red"
+  iconClassName="text-black"
+  textClassName="text-xl"
+/>
+```
+
+By default `cnat` use --scopes 'att:class,className fn:createElement'

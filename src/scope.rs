@@ -1,6 +1,7 @@
 use std::str::FromStr;
 
 use anyhow::{anyhow, Context};
+use colored::Colorize;
 
 use crate::{Array, Str};
 
@@ -57,7 +58,9 @@ impl FromStr for Scope {
 
         let [variant, values] = group.as_slice() else {
             return Err(anyhow!("incorrect number of parts: {:?}", group))
-                .context("should be two parts, a variant and values: <variant>:<...values>");
+                .with_context(|| {
+                    return format!("\n{}\n\tvariants are one of {}\n\ta value can be a string starting or ending with an '*'", "should be two parts, a variant and values: <variant>:<...values>".yellow(), "att | prop | fn".green())
+                });
         };
 
         let values = values
