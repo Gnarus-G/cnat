@@ -1,0 +1,18 @@
+---
+source: src/main.rs
+info: leave_unstyled/fixtures/unstyled.tsx
+---
+import React from "react";
+
+export default function Foo() {
+  return (
+    <div intent="karma">
+      <Button className="untouched">
+        <span>×</span>
+        Button
+      </Button>
+
+      <span></span>
+    </div>
+  );
+}

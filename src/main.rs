@@ -183,6 +183,7 @@ mod transform {
         class_names: &'cn [cnat::Str],
         scopes: &'scopes [Scope],
         is_in_scope: bool,
+        has_prefixed_some: bool,
     }
 
     impl<'s, 'cn, 'scopes> ApplyTailwindPrefix<'s, 'cn, 'scopes> {
@@ -196,6 +197,7 @@ mod transform {
                 class_names,
                 scopes,
                 is_in_scope: false,
+                has_prefixed_some: false,
             }
         }
 
@@ -222,13 +224,13 @@ mod transform {
                             }
                         }
 
-                        let output = self.prefix_classes_in_file(&filepath)?;
-
-                        std::fs::write(&filepath, &output)?;
-                        eprintln!(
-                            "[INFO] transformed {}",
-                            filepath.display().to_string().green()
-                        );
+                        if let Some(output) = self.prefix_classes_in_file(&filepath)? {
+                            std::fs::write(&filepath, &output)?;
+                            eprintln!(
+                                "[INFO] transformed {}",
+                                filepath.display().to_string().green()
+                            );
+                        }
                     }
                     Err(err) => eprintln!("[Error] {err:#}"),
                 };
@@ -237,7 +239,10 @@ mod transform {
             Ok(())
         }
 
-        pub fn prefix_classes_in_file(&mut self, source_file: &Path) -> anyhow::Result<String> {
+        pub fn prefix_classes_in_file(
+            &mut self,
+            source_file: &Path,
+        ) -> anyhow::Result<Option<String>> {
             let cm: Lrc<SourceMap> = Default::default();
             let error_handler =
                 Handler::with_tty_emitter(ColorConfig::Auto, true, false, Some(cm.clone()));
@@ -274,6 +279,10 @@ mod transform {
 
             program.visit_mut_children_with(self);
 
+            if !self.has_prefixed_some {
+                return Ok(None);
+            }
+
             let print_args = swc::PrintArgs {
                 comments: Some(&comments_store),
                 ..Default::default()
@@ -286,7 +295,7 @@ mod transform {
                 )
             })?;
 
-            return Ok(ast_printed.code);
+            return Ok(Some(ast_printed.code));
         }
 
         fn starts_a_valid_scope(&self, ident: &Ident, variant: ScopeVariant) -> bool {
@@ -352,6 +361,7 @@ mod transform {
                     if self.class_names.iter().any(|name| name == *actual_class) {
                         let prefixed = format!("{}{}", self.prefix, actual_class);
                         *actual_class = prefixed.as_str();
+                        self.has_prefixed_some = true;
                         return class_fragments.join(":");
                     }
 
@@ -588,6 +598,38 @@ mod tests {
     fn it_preserves_comments() {
         let context_dir = "preserves_comments";
         let jsfile = JsFile::prep("fixtures/sample_comments.jsx", context_dir);
+
+        let cssfile = "fixtures/sample.css";
+        let mut cmd = Command::cargo_bin("cnat").unwrap();
+        let cmd = cmd
+            .args(["prefix", "-i", cssfile, "--prefix", "tw-", context_dir])
+            .assert()
+            .success();
+
+        let output = cmd.get_output();
+
+        let output = String::from_utf8_lossy(&output.stdout);
+
+        insta::with_settings!({
+            info => &cssfile,
+            omit_expression => true
+        }, {
+            assert_snapshot!(output);
+        });
+
+        insta::with_settings!({
+            snapshot_suffix => jsfile.0.to_string_lossy(),
+            info => &jsfile.0,
+            omit_expression => true
+        }, {
+            assert_snapshot!(jsfile.content_now());
+        });
+    }
+
+    #[test]
+    fn it_leaves_alone_files_without_classes_to_prefix() {
+        let context_dir = "leave_unstyled";
+        let jsfile = JsFile::prep("fixtures/unstyled.tsx", context_dir);
 
         let cssfile = "fixtures/sample.css";
         let mut cmd = Command::cargo_bin("cnat").unwrap();
