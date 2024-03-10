@@ -1,7 +1,7 @@
 ---
 source: src/main.rs
 description: "fn:cva"
-info: cva/fixtures/sample.tsx
+info: cva/fixtures/nested/sample.tsx
 ---
 import React from "react";
 
@@ -21,6 +21,22 @@ export default function Foo() {
   );
 }
 
-const props = {
-  className: "uppercase visible",
-};
+export function Bar() {
+  return (
+    <Paper
+      classes={{
+        root: "bg-white",
+        paper: "bg-blue-500",
+      }}
+      bodyClassName="bg-blue-500 text-sm"
+      buttonClassName="py-2 text-sm"
+    >
+      {React.createElement(Dialog, {
+        className: "w-10",
+        classes: {
+          root: "bg-blue-500 px-4",
+        },
+      })}
+    </Paper>
+  );
+}

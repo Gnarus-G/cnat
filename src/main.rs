@@ -469,7 +469,7 @@ mod tests {
     fn it_works_with_cva_fn_scope() {
         let context_dir = "cva";
         let jsfiles = [
-            JsFile::prep("fixtures/sample.tsx", context_dir),
+            JsFile::prep("fixtures/nested/sample.tsx", context_dir),
             JsFile::prep("fixtures/sample2.tsx", context_dir),
         ];
 
