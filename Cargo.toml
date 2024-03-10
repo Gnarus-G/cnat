@@ -11,7 +11,7 @@ license = "GPL-2.0"
 
 [dependencies]
 anyhow = "1.0.80"
-clap = { version = "4.5.2", features = ["derive"] }
+clap = { version = "4.5.2", features = ["derive", "cargo"] }
 clap_complete = "4.5.1"
 colored = "2.1.0"
 swc_atoms = "0.6.5"
