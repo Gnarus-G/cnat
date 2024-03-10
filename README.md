@@ -35,19 +35,25 @@ in the old `tailwind.config.js`.
 In the root of your project. Run:
 
 ```sh
-echo '@tailwind utilities;' > temp.css
+echo '@tailwind base; @tailwind components; @tailwind utilities;' > temp.css
 npx tailwindcss -i temp.css -o legacy-tw.css
 cnat prefix -i legacy-tw.css --prefix 'legacy-' ./src
 ```
 
-By default, `cnat prefix` will crawl through all the `class=*`, `className=*` in jsx elements and `className:*` in a `React.createElement` calls, inside of `ts|js|tsx|jsx` files.
-It will match any class in the source code with classes found in `legacy-tw.css` (which contains every style that tailwind generates based on your config).
-
-Add the prefix in the legacy config file.
-
 **Pro Tip**: Run your code formatter before running `cnat`. Check the formatted code into version control.
 Then run the command, and run your code formatter again. Now you can go through and check the git diffs to make sure everything is
 allright.
+
+By default, `cnat prefix` will crawl through all the `class=*`, `className=*` in jsx elements and `className:*` in a `React.createElement` calls, inside of `ts|js|tsx|jsx` files.
+It will match any class in the source code with classes found in `legacy-tw.css` (which contains every style that tailwind generates based on your config).
+
+Rename the file for the old configs, `tailwind.legacy.config.ts`.
+
+```sh
+mv tailwind.config.ts tailwind.legacy.config.ts # or *.js if your tailwind config files aren't in typescript
+```
+
+Add the prefix in the legacy config file.
 
 ```ts
 export default {
@@ -55,51 +61,33 @@ export default {
 };
 ```
 
-Then update your global css with the tailwind directives. Rename the file for the old configs, `tailwind.legacy.config.ts`.
+Run the tailwind cli again to rebuild the legacy css classes. Now they will be prefixed since the `tailwind.legacy.config.ts` defined
+the 'legacy-'
 
 ```sh
-mv tailwind.config.ts tailwind.legacy.config.ts # or *.js if your tailwind config files aren't in typescript
+npx tailwindcss -i temp.css -o legacy-tw.css -c tailwind.legacy.config.ts
 ```
 
-Then, create an additional css file which the tailwind directives as such:
-
-`./legacy-tw.css`
+Then, import the legacy css into your global css file.
 
 ```css
-/* Make sure this is a real path in case you css file isn't at the root of the project. */
-@config "./tailwind.legacy.config.ts";
+@import "./legacy-tw.css";
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* And whatever else you have in here */
 ```
 
-`@config` requires tailwind v3.2 btw.
-
-Import that css file in where-ever the entry point for your project is. For example in Nextjs, you can add it to the `_app.tsx` file (pages directory version).
-
-Now you can init new configs.
+Now you can re-init new configs.
 
 ```sh
-npx tailwindcss init
+# You'd have to delete the current `tailwind.config.ts` if you haven't already.
+npx tailwindcss init --ts
 ```
 
-Now in a new `global.css` file
-
-```css
-/* Again mind the path. */
-@config "./tailwind.config.ts"
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
-```
-
-```ts
-// Again mind the paths.
-import "./legacy-tw.css";
-import "./global.css";
-```
-
-And now you can breathe.
+And now you can breathe. A fresh new start; ignoring what's under the bed now.
 
 ## Usage
 
