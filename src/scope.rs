@@ -86,6 +86,10 @@ impl FromStr for Scope {
             })
             .collect::<Result<Vec<_>, anyhow::Error>>()?;
 
+        if values.is_empty() {
+            return Err(anyhow!("at least one value must be provided"));
+        }
+
         let values = values.into();
 
         let variant = match *variant {
@@ -195,6 +199,12 @@ mod tests {
     fn it_rejects_middle_wildcard() {
         Scope::from_str("att:class,class*name").unwrap_err();
         Scope::from_str("prop:class*name").unwrap_err();
+    }
+
+    #[test]
+    fn it_rejects_empty_values() {
+        Scope::from_str("att:").unwrap_err();
+        Scope::from_str("prop:,").unwrap_err();
     }
 
     #[test]
