@@ -224,12 +224,22 @@ mod transform {
                             }
                         }
 
-                        if let Some(output) = self.prefix_classes_in_file(&filepath)? {
-                            std::fs::write(&filepath, &output)?;
-                            eprintln!(
-                                "[INFO] transformed {}",
-                                filepath.display().to_string().green()
-                            );
+                        match self.prefix_classes_in_file(&filepath) {
+                            Ok(Some(output)) => {
+                                std::fs::write(&filepath, &output)?;
+                                eprintln!(
+                                    "[INFO] transformed {}",
+                                    filepath.display().to_string().green()
+                                );
+                            }
+                            Err(err) => {
+                                eprintln!(
+                                    "{} failed to process file, {}: {err:#}",
+                                    "[ERROR]".red(),
+                                    filepath.display()
+                                )
+                            }
+                            _ => {}
                         }
                     }
                     Err(err) => eprintln!("[Error] {err:#}"),
@@ -262,7 +272,12 @@ mod transform {
                     tsx: true,
                     ..Default::default()
                 }),
-                None => return Err(anyhow!("unknown filetype, missing extension")),
+                None => {
+                    return Err(anyhow!(
+                        "unknown filetype, missing extension: {}",
+                        source_file.display()
+                    ))
+                }
                 ext => return Err(anyhow!("unknown filetype: {ext:?}")),
             };
 
