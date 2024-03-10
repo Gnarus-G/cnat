@@ -43,9 +43,9 @@ struct PrefixArgs {
     #[arg(short, long, num_args = 1.., value_delimiter = ' ', default_value = "att:class,className fn:createElement")]
     scopes: Vec<Scope>,
 
-    /// The root directory of the js/ts project.
+    /// The directories in which to find js/ts files.
     #[arg(value_hint = ValueHint::DirPath)]
-    context: PathBuf,
+    contexts: Vec<PathBuf>,
 }
 
 fn main() -> anyhow::Result<()> {
@@ -64,11 +64,13 @@ fn main() -> anyhow::Result<()> {
         }
     };
 
-    if !cli.context.is_dir() {
-        return Err(anyhow!(
-            "context should be a directory, got {}",
-            cli.context.display()
-        ));
+    for context in &cli.contexts {
+        if !context.is_dir() {
+            return Err(anyhow!(
+                "context should be a directory, got {}",
+                context.display()
+            ));
+        }
     }
 
     let c = ClassNamesCollector::parse(cli.css_file)?;
@@ -78,7 +80,9 @@ fn main() -> anyhow::Result<()> {
 
     let mut ppc = ApplyTailwindPrefix::new(&cli.prefix, &c.class_names, &cli.scopes);
 
-    ppc.prefix_all_classes_in_dir(&cli.context)?;
+    for context in &cli.contexts {
+        ppc.prefix_all_classes_in_dir(context)?;
+    }
 
     eprintln!("{}", "[DONE] Remember to run your formatter on the transformed files to make sure the format is as expected.".green());
 
