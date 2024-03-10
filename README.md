@@ -163,3 +163,7 @@ For example 'att:className att:\*ClassName' will find classes all of these attri
 ```
 
 By default `cnat` use --scopes 'att:class,className fn:createElement'
+
+```sh
+cnat prefix -i legacy-tw.css --prefix 'legacy-' ./src --scopes 'att:class,className fn:createElement'
+```
