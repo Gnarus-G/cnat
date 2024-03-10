@@ -199,6 +199,10 @@ mod transform {
         pub fn prefix_all_classes_in_dir(&mut self, path: &Path) -> anyhow::Result<()> {
             assert!(path.is_dir());
 
+            if path.ends_with("node_modules") {
+                return Ok(());
+            };
+
             for r in path.read_dir()? {
                 match r {
                     Ok(entry) => {
