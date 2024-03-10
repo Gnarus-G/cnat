@@ -1,0 +1,44 @@
+---
+source: src/main.rs
+description: "att:classes,*ClassName"
+info: object_inside/fixtures/nested/sample2.tsx
+---
+import React from "react";
+export default function Foo() {
+    return (<div className="sr-only visible untouched sm:[&_button]:text-sm" intent="karma">
+
+      <Button className="[&>.MuiButton-startIcon]:absolute" startIcon={<Icon className="text-gray-800">email</Icon>}>
+
+        <span className="MuiButton-startIcon w-10/11">×</span>
+
+        Button
+
+      </Button>
+
+
+
+      <Alert iconProps={{
+        className: "text-sm text-white"
+    }}></Alert>
+
+
+
+      <span className="[&>*]:w-[10px] [&]:last-of-type:pb-6 untouched"> </span>
+
+    </div>);
+}
+export function Bar() {
+    return (<Paper classes={{
+        root: "tw-bg-white",
+        paper: "tw-bg-blue-500"
+    }} bodyClassName="tw-bg-blue-500 tw-text-sm" buttonClassName="tw-py-2 tw-text-sm">
+
+      {React.createElement(Dialog, {
+        className: "w-10",
+        classes: {
+            root: "bg-blue-500 px-4"
+        }
+    })}
+
+    </Paper>);
+}

@@ -315,6 +315,8 @@ mod transform {
                     self.is_in_scope = false;
                 }
             }
+
+            n.visit_mut_children_with(self);
         }
 
         fn visit_mut_call_expr(&mut self, n: &mut swc_ecma_ast::CallExpr) {
@@ -415,6 +417,7 @@ mod tests {
             JsFile::prep("fixtures/nested/sample.tsx", context_dir),
             JsFile::prep("fixtures/nested/nested/sample.tsx", context_dir),
             JsFile::prep("fixtures/sample2.tsx", context_dir),
+            JsFile::prep("fixtures/nested/sample2.tsx", context_dir),
         ];
 
         let cssfile = "fixtures/sample.css";
@@ -502,6 +505,7 @@ mod tests {
             JsFile::prep("fixtures/nested/sample.tsx", context_dir),
             JsFile::prep("fixtures/nested/nested/sample.tsx", context_dir),
             JsFile::prep("fixtures/sample2.tsx", context_dir),
+            JsFile::prep("fixtures/nested/sample2.tsx", context_dir),
         ];
 
         let cssfile = "fixtures/sample.css";
@@ -552,6 +556,7 @@ mod tests {
             JsFile::prep("fixtures/nested/sample.tsx", context_dir),
             JsFile::prep("fixtures/nested/nested/sample.tsx", context_dir),
             JsFile::prep("fixtures/sample2.tsx", context_dir),
+            JsFile::prep("fixtures/nested/sample2.tsx", context_dir),
         ];
 
         let cssfile = "fixtures/sample.css";
