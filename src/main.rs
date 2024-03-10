@@ -91,9 +91,9 @@ fn main() -> anyhow::Result<()> {
 
 mod collect {
     use std::path::PathBuf;
-    use std::rc::Rc;
 
     use swc_common::errors::{ColorConfig, Handler};
+    use swc_common::sync::Lrc;
     use swc_common::{FileName, SourceMap};
     use swc_css::visit::{Visit, VisitWith};
 
@@ -115,7 +115,7 @@ mod collect {
 
             let options = swc_css::parser::parser::ParserConfig::default();
 
-            let cm: Rc<SourceMap> = Default::default();
+            let cm: Lrc<SourceMap> = Default::default();
             let filename = FileName::Real(css_file);
             let cssfile = cm.new_source_file(filename.clone(), code);
 
@@ -149,7 +149,7 @@ mod collect {
                 })
                 .for_each(|s| {
                     if s.text.value.contains(':') {
-                        let cn = s.text.value.split(':').last().unwrap();
+                        let cn = s.text.value.split(':').last().expect("should have at least one value after split, since empty selectors aren't allowed");
                         self.class_names.push(cn.into());
                     } else {
                         self.class_names.push(s.text.value.as_str().into());
@@ -164,6 +164,7 @@ mod transform {
     use colored::Colorize;
     use std::ffi::OsStr;
     use std::path::Path;
+    use swc::config::IsModule;
     use swc_atoms::Atom;
     use swc_common::comments::SingleThreadedComments;
     use swc_common::sync::Lrc;
@@ -172,8 +173,6 @@ mod transform {
         SourceMap,
     };
     use swc_ecma_ast::{Callee, EsVersion, Expr, Ident, JSXAttrName, PropName};
-    use swc_ecma_codegen::text_writer;
-    use swc_ecma_parser::parse_file_as_module;
     use swc_ecma_parser::Syntax;
     use swc_ecma_visit::{VisitMut, VisitMutWith};
 
@@ -238,7 +237,7 @@ mod transform {
             Ok(())
         }
 
-        pub fn prefix_classes_in_file(&mut self, source_file: &Path) -> anyhow::Result<Vec<u8>> {
+        pub fn prefix_classes_in_file(&mut self, source_file: &Path) -> anyhow::Result<String> {
             let cm: Lrc<SourceMap> = Default::default();
             let error_handler =
                 Handler::with_tty_emitter(ColorConfig::Auto, true, false, Some(cm.clone()));
@@ -248,7 +247,6 @@ mod transform {
                 .context("failed to load source file")?;
 
             let comments_store = SingleThreadedComments::default();
-            let mut errors = vec![];
             let syntax = match source_file.extension().and_then(|e| e.to_str()) {
                 Some("js") | Some("jsx") => Syntax::Es(swc_ecma_parser::EsConfig {
                     jsx: true,
@@ -263,37 +261,32 @@ mod transform {
                 ext => return Err(anyhow!("unknown filetype: {ext:?}")),
             };
 
-            let mut module = parse_file_as_module(
-                &fm,
-                syntax,
+            let c = swc::Compiler::new(cm.clone());
+
+            let mut program = c.parse_js(
+                fm.clone(),
+                &error_handler,
                 EsVersion::Es2015,
+                syntax,
+                IsModule::Unknown,
                 Some(&comments_store),
-                &mut errors,
-            )
-            .map_err(|e| e.into_diagnostic(&error_handler))
-            .expect("failed to parser module");
+            )?;
 
-            for e in errors {
-                e.into_diagnostic(&error_handler).emit();
-            }
+            program.visit_mut_children_with(self);
 
-            module.visit_mut_children_with(self);
-
-            let mut output = Vec::new();
-            let writer = text_writer::JsWriter::new(cm.clone(), "\n", &mut output, None);
-
-            let mut emitter = swc_ecma_codegen::Emitter {
-                cfg: Default::default(),
-                cm: cm.clone(),
+            let print_args = swc::PrintArgs {
                 comments: Some(&comments_store),
-                wr: Box::new(writer),
+                ..Default::default()
             };
 
-            emitter
-                .emit_module(&module)
-                .context("failed to emit edit module")?;
+            let ast_printed = c.print(&program, print_args).with_context(|| {
+                format!(
+                    "failed to print code after modification: {}",
+                    source_file.display()
+                )
+            })?;
 
-            return Ok(output);
+            return Ok(ast_printed.code);
         }
 
         fn starts_a_valid_scope(&self, ident: &Ident, variant: ScopeVariant) -> bool {
