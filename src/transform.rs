@@ -33,8 +33,11 @@ impl<'s, 'cn, 'scopes> ApplyTailwindPrefix<'s, 'cn, 'scopes> {
         }
     }
 
-    pub fn prefix_all_classes_in_dir(&mut self, path: &Path) -> anyhow::Result<()> {
+    /// Returns the number of files transformed.
+    pub fn prefix_all_classes_in_dir(&mut self, path: &Path) -> anyhow::Result<usize> {
         assert!(path.is_dir());
+
+        let mut edit_count = 0;
 
         for r in ignore::Walk::new(path) {
             match r {
@@ -50,22 +53,28 @@ impl<'s, 'cn, 'scopes> ApplyTailwindPrefix<'s, 'cn, 'scopes> {
                         continue;
                     }
 
-                    if let Err(err) = self.prefix_classes_in_file(filepath) {
-                        eprintln!(
-                            "{} failed to process file, {}: {err:#}",
-                            "[ERROR]".red(),
-                            filepath.display()
-                        )
+                    match self.prefix_classes_in_file(filepath) {
+                        Ok(Some(())) => {
+                            edit_count += 1;
+                        }
+                        Err(err) => {
+                            eprintln!(
+                                "{} failed to process file, {}: {err:#}",
+                                "[ERROR]".red(),
+                                filepath.display()
+                            )
+                        }
+                        Ok(None) => {}
                     }
                 }
                 Err(err) => eprintln!("[Error] {err:#}"),
             };
         }
 
-        Ok(())
+        Ok(edit_count)
     }
 
-    pub fn prefix_classes_in_file(&mut self, source_file: &Path) -> anyhow::Result<()> {
+    pub fn prefix_classes_in_file(&mut self, source_file: &Path) -> anyhow::Result<Option<()>> {
         let cm: Lrc<SourceMap> = Default::default();
         let error_handler =
             Handler::with_tty_emitter(ColorConfig::Auto, true, false, Some(cm.clone()));
@@ -101,7 +110,7 @@ impl<'s, 'cn, 'scopes> ApplyTailwindPrefix<'s, 'cn, 'scopes> {
         program.visit_mut_children_with(self);
 
         if self.replacements.is_empty() {
-            return Ok(());
+            return Ok(None);
         }
 
         let contents = std::fs::read(source_file).context("failed to file for writing")?;
@@ -118,7 +127,7 @@ impl<'s, 'cn, 'scopes> ApplyTailwindPrefix<'s, 'cn, 'scopes> {
 
         self.replacements.clear();
 
-        Ok(())
+        Ok(Some(()))
     }
 
     fn starts_a_valid_scope(&self, ident: &Ident, variant: ScopeVariant) -> bool {

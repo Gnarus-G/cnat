@@ -83,11 +83,15 @@ fn main() -> anyhow::Result<()> {
 
     let mut ppc = ApplyTailwindPrefix::new(&cli.prefix, &c.class_names, &cli.scopes);
 
+    let mut count = 0;
     for context in &cli.contexts {
-        ppc.prefix_all_classes_in_dir(context)?;
+        count += ppc.prefix_all_classes_in_dir(context)?;
     }
 
-    eprintln!("{}", "[DONE] Remember to run your formatter on the transformed files to make sure the format is as expected.".green());
+    eprintln!(
+        "{}",
+        format!("[DONE] {} files were tranformed.", count).green()
+    );
 
     Ok(())
 }
