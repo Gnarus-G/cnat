@@ -204,29 +204,23 @@ mod transform {
         pub fn prefix_all_classes_in_dir(&mut self, path: &Path) -> anyhow::Result<()> {
             assert!(path.is_dir());
 
-            if path.ends_with("node_modules") {
-                return Ok(());
-            };
-
-            for r in path.read_dir()? {
+            for r in ignore::Walk::new(path) {
                 match r {
                     Ok(entry) => {
                         let filepath = entry.path();
+                        let is_supported_file = filepath.is_file()
+                            && filepath
+                                .extension()
+                                .map(|e| ["ts", "js", "jsx", "tsx"].map(OsStr::new).contains(&e))
+                                .unwrap_or(false);
 
-                        if filepath.is_dir() {
-                            self.prefix_all_classes_in_dir(&filepath)?;
+                        if !is_supported_file {
                             continue;
                         }
 
-                        if let Some(ext) = filepath.extension() {
-                            if !["ts", "js", "jsx", "tsx"].map(OsStr::new).contains(&ext) {
-                                continue;
-                            }
-                        }
-
-                        match self.prefix_classes_in_file(&filepath) {
+                        match self.prefix_classes_in_file(filepath) {
                             Ok(Some(output)) => {
-                                std::fs::write(&filepath, &output)?;
+                                std::fs::write(filepath, &output)?;
                                 eprintln!(
                                     "[INFO] transformed {}",
                                     filepath.display().to_string().green()
