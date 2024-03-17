@@ -181,7 +181,7 @@ mod transform {
         class_names: &'cn [cnat::Str],
         scopes: &'scopes [Scope],
         is_in_scope: bool,
-        replacments: Vec<replacements::Replacement>,
+        replacements: Vec<replacements::Replacement>,
     }
 
     impl<'s, 'cn, 'scopes> ApplyTailwindPrefix<'s, 'cn, 'scopes> {
@@ -195,7 +195,7 @@ mod transform {
                 class_names,
                 scopes,
                 is_in_scope: false,
-                replacments: vec![],
+                replacements: vec![],
             }
         }
 
@@ -267,7 +267,7 @@ mod transform {
 
             program.visit_mut_children_with(self);
 
-            if self.replacments.is_empty() {
+            if self.replacements.is_empty() {
                 return Ok(());
             }
 
@@ -275,7 +275,7 @@ mod transform {
 
             eprintln!("[INFO] reading to transform {}", source_file.display());
 
-            let contents = replacements::Replacement::apply_all(&mut self.replacments, contents);
+            let contents = replacements::Replacement::apply_all(&mut self.replacements, contents);
             std::fs::write(source_file, contents)?;
 
             eprintln!(
@@ -283,7 +283,7 @@ mod transform {
                 source_file.display().to_string().green()
             );
 
-            self.replacments.clear();
+            self.replacements.clear();
 
             Ok(())
         }
@@ -344,8 +344,11 @@ mod transform {
             let replacements: Vec<_> = n
                 .value
                 .split(' ')
-                .filter(|s| !s.is_empty())
                 .map(|class| {
+                    if class.is_empty() {
+                        return class.to_string();
+                    }
+
                     let mut class_fragments: Vec<_> = class.split(':').collect();
                     let actual_class = class_fragments
                         .last_mut()
@@ -375,10 +378,12 @@ mod transform {
                     n.value.as_bytes().len()
                 );
 
-                self.replacments.push(replacements::Replacement::new(
+                let replacement = replacements.join(" ");
+
+                self.replacements.push(replacements::Replacement::new(
                     start..=end,
                     n.value.as_bytes(),
-                    replacements.join(" ").as_bytes(),
+                    replacement.as_bytes(),
                 ));
             }
         }
@@ -415,7 +420,15 @@ mod transform {
                 self.slide_span(byte_additions);
 
                 let to_be_removed = &contents[self.byte_range.clone()];
-                assert_eq!(self.old.as_ref(), to_be_removed);
+                debug_assert_eq!(
+                    String::from_utf8_lossy(self.old.as_ref()),
+                    String::from_utf8_lossy(to_be_removed)
+                );
+                assert_eq!(
+                    self.old.as_ref(),
+                    to_be_removed,
+                    "invariant failed: the range to replace is not equal to string value parsed"
+                );
 
                 let replace_with = self.new.iter().cloned();
                 contents.splice(self.byte_range.clone(), replace_with);
@@ -427,7 +440,7 @@ mod transform {
             pub fn apply_all(rps: &mut [Replacement], mut contents: Vec<u8>) -> Vec<u8> {
                 let mut byte_additions = 0;
                 for rp in rps {
-                    byte_additions += rp.apply(&mut contents, byte_additions)
+                    byte_additions += rp.apply(&mut contents, byte_additions);
                 }
                 return contents;
             }
