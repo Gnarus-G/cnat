@@ -165,7 +165,6 @@ mod transform {
     use std::ffi::OsStr;
     use std::path::Path;
     use swc::config::IsModule;
-    use swc_atoms::Atom;
     use swc_common::comments::SingleThreadedComments;
     use swc_common::sync::Lrc;
     use swc_common::{
@@ -183,7 +182,7 @@ mod transform {
         class_names: &'cn [cnat::Str],
         scopes: &'scopes [Scope],
         is_in_scope: bool,
-        has_prefixed_some: bool,
+        replacments: Vec<replacements::Replacement>,
     }
 
     impl<'s, 'cn, 'scopes> ApplyTailwindPrefix<'s, 'cn, 'scopes> {
@@ -197,7 +196,7 @@ mod transform {
                 class_names,
                 scopes,
                 is_in_scope: false,
-                has_prefixed_some: false,
+                replacments: vec![],
             }
         }
 
@@ -218,22 +217,12 @@ mod transform {
                             continue;
                         }
 
-                        match self.prefix_classes_in_file(filepath) {
-                            Ok(Some(output)) => {
-                                std::fs::write(filepath, &output)?;
-                                eprintln!(
-                                    "[INFO] transformed {}",
-                                    filepath.display().to_string().green()
-                                );
-                            }
-                            Err(err) => {
-                                eprintln!(
-                                    "{} failed to process file, {}: {err:#}",
-                                    "[ERROR]".red(),
-                                    filepath.display()
-                                )
-                            }
-                            _ => {}
+                        if let Err(err) = self.prefix_classes_in_file(filepath) {
+                            eprintln!(
+                                "{} failed to process file, {}: {err:#}",
+                                "[ERROR]".red(),
+                                filepath.display()
+                            )
                         }
                     }
                     Err(err) => eprintln!("[Error] {err:#}"),
@@ -243,10 +232,7 @@ mod transform {
             Ok(())
         }
 
-        pub fn prefix_classes_in_file(
-            &mut self,
-            source_file: &Path,
-        ) -> anyhow::Result<Option<String>> {
+        pub fn prefix_classes_in_file(&mut self, source_file: &Path) -> anyhow::Result<()> {
             let cm: Lrc<SourceMap> = Default::default();
             let error_handler =
                 Handler::with_tty_emitter(ColorConfig::Auto, true, false, Some(cm.clone()));
@@ -288,23 +274,25 @@ mod transform {
 
             program.visit_mut_children_with(self);
 
-            if !self.has_prefixed_some {
-                return Ok(None);
+            if self.replacments.is_empty() {
+                return Ok(());
             }
 
-            let print_args = swc::PrintArgs {
-                comments: Some(&comments_store),
-                ..Default::default()
-            };
+            let contents = std::fs::read(source_file).context("failed to file for writing")?;
 
-            let ast_printed = c.print(&program, print_args).with_context(|| {
-                format!(
-                    "failed to print code after modification: {}",
-                    source_file.display()
-                )
-            })?;
+            eprintln!("[INFO] reading to transform {}", source_file.display());
 
-            return Ok(Some(ast_printed.code));
+            let contents = replacements::Replacement::apply_all(&mut self.replacments, contents);
+            std::fs::write(source_file, contents)?;
+
+            eprintln!(
+                "[INFO] transformed {}",
+                source_file.display().to_string().green()
+            );
+
+            self.replacments.clear();
+
+            Ok(())
         }
 
         fn starts_a_valid_scope(&self, ident: &Ident, variant: ScopeVariant) -> bool {
@@ -359,6 +347,7 @@ mod transform {
                 return;
             }
 
+            let mut has_prefixed_some = false;
             let replacements: Vec<_> = n
                 .value
                 .split(' ')
@@ -372,7 +361,7 @@ mod transform {
                     if self.class_names.iter().any(|name| name == *actual_class) {
                         let prefixed = format!("{}{}", self.prefix, actual_class);
                         *actual_class = prefixed.as_str();
-                        self.has_prefixed_some = true;
+                        has_prefixed_some = true;
                         return class_fragments.join(":");
                     }
 
@@ -380,9 +369,103 @@ mod transform {
                 })
                 .collect();
 
-            let replacement = Atom::new(format!("\"{}\"", replacements.join(" ")));
+            if has_prefixed_some {
+                let start = n.span.lo.0 as usize - 1; // - 1 because swc bytepos is 1-based
+                let end = n.span.hi.0 as usize - 1;
 
-            n.raw = Some(replacement)
+                // exclude the begining and end quotes counted in the span
+                let start = start + 1;
+                let end = end - 2;
+
+                debug_assert_eq!(
+                    end - start + 1, // computed value length
+                    n.value.as_bytes().len()
+                );
+
+                self.replacments.push(replacements::Replacement::new(
+                    start..=end,
+                    n.value.as_bytes().to_vec(),
+                    replacements.join(" ").into(),
+                ));
+            }
+        }
+    }
+
+    mod replacements {
+
+        pub struct Replacement {
+            byte_range: std::ops::RangeInclusive<usize>,
+            old: Vec<u8>,
+            new: Vec<u8>,
+        }
+
+        impl Replacement {
+            pub fn new(
+                byte_range: std::ops::RangeInclusive<usize>,
+                old: Vec<u8>,
+                new: Vec<u8>,
+            ) -> Self {
+                Self {
+                    byte_range,
+                    old,
+                    new,
+                }
+            }
+
+            fn slide_span(&mut self, addition: usize) {
+                let start = self.byte_range.start() + addition;
+                let end = self.byte_range.end() + addition;
+                self.byte_range = start..=end;
+            }
+
+            fn apply(&mut self, contents: &mut Vec<u8>, byte_additions: usize) -> usize {
+                self.slide_span(byte_additions);
+
+                let to_be_removed = &contents[self.byte_range.clone()];
+                assert_eq!(self.old, to_be_removed);
+
+                let replace_with = self.new.iter().cloned();
+                contents.splice(self.byte_range.clone(), replace_with);
+
+                let addition = self.new.len().saturating_sub(self.old.len());
+                return addition;
+            }
+
+            pub fn apply_all(rps: &mut [Replacement], mut contents: Vec<u8>) -> Vec<u8> {
+                let mut byte_additions = 0;
+                for rp in rps {
+                    byte_additions += rp.apply(&mut contents, byte_additions)
+                }
+                return contents;
+            }
+        }
+
+        #[cfg(test)]
+        mod tests {
+            use super::*;
+
+            #[test]
+            fn replacements() {
+                let contents = "1234567hiearth".as_bytes().to_vec();
+                let rps = &mut [
+                    Replacement::new(
+                        1..=3,
+                        "234".as_bytes().to_vec(),
+                        "abcdef".as_bytes().to_vec(),
+                    ),
+                    Replacement::new(5..=6, "67".as_bytes().to_vec(), "jkl".as_bytes().to_vec()),
+                    Replacement::new(7..=8, "hi".as_bytes().to_vec(), "hello".as_bytes().to_vec()),
+                    Replacement::new(
+                        9..=13,
+                        "earth".as_bytes().to_vec(),
+                        "world".as_bytes().to_vec(),
+                    ),
+                ];
+
+                let contents = Replacement::apply_all(rps, contents);
+
+                assert_eq!(contents, "1abcdef5jklhelloworld".as_bytes());
+            }
         }
     }
 }

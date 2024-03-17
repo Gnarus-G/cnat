@@ -4,35 +4,39 @@ description: "[\"sr-only\", \"uppercase\", \"!visible\", \"visible\", \"mx-1\", 
 info: basic/fixtures/nested/sample.tsx
 ---
 import React from "react";
+
 export default function Foo() {
-    return (<div className="tw-sr-only tw-visible untouched sm:[&_button]:tw-text-sm" intent="karma">
-
+  return (
+    <div
+      className="tw-sr-only tw-visible untouched sm:[&_button]:tw-text-sm"
+      intent="karma"
+    >
       <Button className="[&>.MuiButton-startIcon]:tw-absolute">
-
         <span className="tw-MuiButton-startIcon tw-w-10/11">×</span>
-
         Button
-
       </Button>
 
-
-
       <span className="[&>*]:tw-w-[10px] [&]:last-of-type:tw-pb-6 untouched"> </span>
-
-    </div>);
+    </div>
+  );
 }
-export function Bar() {
-    return (<Paper classes={{
-        root: "bg-white",
-        paper: "bg-blue-500"
-    }} bodyClassName="bg-blue-500 text-sm" buttonClassName="py-2 text-sm">
 
+export function Bar() {
+  return (
+    <Paper
+      classes={{
+        root: "bg-white",
+        paper: "bg-blue-500",
+      }}
+      bodyClassName="bg-blue-500 text-sm"
+      buttonClassName="py-2 text-sm"
+    >
       {React.createElement(Dialog, {
         className: "w-10",
         classes: {
-            root: "bg-blue-500 px-4"
-        }
-    })}
-
-    </Paper>);
+          root: "bg-blue-500 px-4",
+        },
+      })}
+    </Paper>
+  );
 }
