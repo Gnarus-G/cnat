@@ -164,15 +164,14 @@ mod transform {
     use colored::Colorize;
     use std::ffi::OsStr;
     use std::path::Path;
-    use swc::config::IsModule;
-    use swc_common::comments::SingleThreadedComments;
+    use std::vec;
     use swc_common::sync::Lrc;
     use swc_common::{
         errors::{ColorConfig, Handler},
         SourceMap,
     };
     use swc_ecma_ast::{Callee, EsVersion, Expr, Ident, JSXAttrName, PropName};
-    use swc_ecma_parser::Syntax;
+    use swc_ecma_parser::{parse_file_as_program, Syntax};
     use swc_ecma_visit::{VisitMut, VisitMutWith};
 
     use cnat::scope::{Scope, ScopeVariant};
@@ -241,7 +240,6 @@ mod transform {
                 .load_file(source_file)
                 .context("failed to load source file")?;
 
-            let comments_store = SingleThreadedComments::default();
             let syntax = match source_file.extension().and_then(|e| e.to_str()) {
                 Some("js") | Some("jsx") => Syntax::Es(swc_ecma_parser::EsConfig {
                     jsx: true,
@@ -261,16 +259,11 @@ mod transform {
                 ext => return Err(anyhow!("unknown filetype: {ext:?}")),
             };
 
-            let c = swc::Compiler::new(cm.clone());
-
-            let mut program = c.parse_js(
-                fm.clone(),
-                &error_handler,
-                EsVersion::Es2015,
-                syntax,
-                IsModule::Unknown,
-                Some(&comments_store),
-            )?;
+            let mut errors = vec![];
+            let mut program =
+                parse_file_as_program(&fm, syntax, EsVersion::Es2015, None, &mut errors)
+                    .map_err(|e| e.into_diagnostic(&error_handler).emit())
+                    .expect("failed to parse source code file");
 
             program.visit_mut_children_with(self);
 
