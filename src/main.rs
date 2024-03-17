@@ -377,8 +377,8 @@ mod transform {
 
                 self.replacments.push(replacements::Replacement::new(
                     start..=end,
-                    n.value.as_bytes().to_vec(),
-                    replacements.join(" ").into(),
+                    n.value.as_bytes(),
+                    replacements.join(" ").as_bytes(),
                 ));
             }
         }
@@ -388,20 +388,20 @@ mod transform {
 
         pub struct Replacement {
             byte_range: std::ops::RangeInclusive<usize>,
-            old: Vec<u8>,
-            new: Vec<u8>,
+            old: cnat::Array<u8>,
+            new: cnat::Array<u8>,
         }
 
         impl Replacement {
             pub fn new(
                 byte_range: std::ops::RangeInclusive<usize>,
-                old: Vec<u8>,
-                new: Vec<u8>,
+                old: &[u8],
+                new: &[u8],
             ) -> Self {
                 Self {
                     byte_range,
-                    old,
-                    new,
+                    old: old.into(),
+                    new: new.into(),
                 }
             }
 
@@ -415,7 +415,7 @@ mod transform {
                 self.slide_span(byte_additions);
 
                 let to_be_removed = &contents[self.byte_range.clone()];
-                assert_eq!(self.old, to_be_removed);
+                assert_eq!(self.old.as_ref(), to_be_removed);
 
                 let replace_with = self.new.iter().cloned();
                 contents.splice(self.byte_range.clone(), replace_with);
@@ -441,18 +441,10 @@ mod transform {
             fn replacements() {
                 let contents = "1234567hiearth".as_bytes().to_vec();
                 let rps = &mut [
-                    Replacement::new(
-                        1..=3,
-                        "234".as_bytes().to_vec(),
-                        "abcdef".as_bytes().to_vec(),
-                    ),
-                    Replacement::new(5..=6, "67".as_bytes().to_vec(), "jkl".as_bytes().to_vec()),
-                    Replacement::new(7..=8, "hi".as_bytes().to_vec(), "hello".as_bytes().to_vec()),
-                    Replacement::new(
-                        9..=13,
-                        "earth".as_bytes().to_vec(),
-                        "world".as_bytes().to_vec(),
-                    ),
+                    Replacement::new(1..=3, "234".as_bytes(), "abcdef".as_bytes()),
+                    Replacement::new(5..=6, "67".as_bytes(), "jkl".as_bytes()),
+                    Replacement::new(7..=8, "hi".as_bytes(), "hello".as_bytes()),
+                    Replacement::new(9..=13, "earth".as_bytes(), "world".as_bytes()),
                 ];
 
                 let contents = Replacement::apply_all(rps, contents);
