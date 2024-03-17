@@ -8,7 +8,8 @@ import React from "react";
 export default function Foo() {
   return (
     <div
-      className="tw-sr-only tw-visible untouched sm:[&_button]:tw-text-sm"
+      className="tw-sr-only tw-visible untouched 
+ sm:[&_button]:tw-text-sm"
       intent="karma"
     >
       <Button className="[&>.MuiButton-startIcon]:tw-absolute">
