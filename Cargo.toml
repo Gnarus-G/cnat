@@ -1,6 +1,6 @@
 [package]
 name = "cnat"
-version = "0.0.4"
+version = "0.0.5"
 description = "Systematically apply certain modifications to classes, class names, used in your frontend codebase."
 edition = "2021"
 homepage = "https://github.com/Gnarus-G/cnat"
